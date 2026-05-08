@@ -5,10 +5,11 @@
 [![Stdlib only](https://img.shields.io/badge/runtime-stdlib%20only-informational)](#架构)
 [![Status: preview](https://img.shields.io/badge/status-preview-orange)](#已知限制)
 
-一个本地 Python Web GUI，用来调用 [Gemini Deep Research][gdr] 与 OpenAI
-兼容的 Chat Completions（DeepSeek / OpenAI / OpenRouter）完成长任务式
-研究，并把过程、报告、图表、原始 API 返回完整归档到本机。所有 API
-key、任务状态与产物都只保存在你的电脑上。
+一个本地 Python Web GUI，用来调用 [Gemini Deep Research][gdr]、
+Anthropic Claude（含原生 web_search）以及 OpenAI 兼容的 DeepSeek /
+OpenAI / OpenRouter（通过 Tavily 检索）完成 **联网 agentic 研究**，并把
+过程、报告、图表、原始 API 返回完整归档到本机。所有 API key、任务
+状态与产物都只保存在你的电脑上。
 
 > [English version](#english) is available below.
 
@@ -25,11 +26,15 @@ key、任务状态与产物都只保存在你的电脑上。
 
 ## 亮点
 
-- **Gemini Deep Research 端到端**：长任务、SSE 流式、协作规划、引用、
-  正文嵌入图表、计划批准与修订循环；可切换 **Deep Research Max** 获取
-  更高搜索量与上下文，适合深度尽职调查或竞争分析。
-- **三个 OpenAI 兼容 fallback**：DeepSeek / OpenAI / OpenRouter 走 Chat
-  Completions，适合低成本草稿和后期整理。
+- **5 个 provider 全部联网**：
+  - **Gemini Deep Research / Max**：原生 long-running interactions，SSE
+    流式、协作规划、计划批准与修订循环；Max 提供更高搜索量与上下文，
+    适合深度尽职调查或竞争分析。
+  - **Anthropic Claude**：messages API + 原生 `web_search` 工具，无需
+    额外搜索后端；默认走 `claude-opus-4-7`。
+  - **DeepSeek / OpenAI / OpenRouter**：自带 agentic loop（OpenAI tool
+    调用 + Tavily 检索），由模型自己生成查询、读结果、决定何时收尾，
+    最终输出带数字编号引用的 Markdown 报告。
 - **本地优先**：服务器只监听 `127.0.0.1`；设置、任务状态、产物都保存
   在 `app_data/`，默认已加入 `.gitignore`。
 - **每任务可归档**：每次运行产出 Markdown + PDF + 单个 ZIP，包含报告、
@@ -89,9 +94,11 @@ python3 app.py --host 127.0.0.1 --port 8765
 | Provider | 申请入口 | 说明 |
 | --- | --- | --- |
 | **Gemini Deep Research** | [aistudio.google.com](https://aistudio.google.com/apikey) | 在 Google AI Studio 创建 API Key；Deep Research 当前为 preview，需要使用支持的模型。 |
+| **Anthropic Claude** | [console.anthropic.com](https://console.anthropic.com/settings/keys) | Claude 账号 → API Keys；Opus 4.7 支持原生 `web_search` 工具，无需 Tavily。 |
 | **DeepSeek** | [platform.deepseek.com](https://platform.deepseek.com/api_keys) | 注册后在 API Keys 页面创建。 |
 | **OpenAI** | [platform.openai.com](https://platform.openai.com/api-keys) | OpenAI 账号 → API Keys → Create secret key。 |
 | **OpenRouter** | [openrouter.ai/keys](https://openrouter.ai/keys) | 一个 key 可调用 367+ 模型，按调用计费。 |
+| **Tavily（搜索后端）** | [tavily.com](https://tavily.com) | DeepSeek / OpenAI / OpenRouter 联网研究的搜索引擎；免费 1000 查询 / 月。Anthropic 和 Gemini 不需要。 |
 
 ## 配置
 
@@ -101,9 +108,11 @@ python3 app.py --host 127.0.0.1 --port 8765
 
 ```bash
 export GEMINI_API_KEY="..."
+export ANTHROPIC_API_KEY="..."
 export DEEPSEEK_API_KEY="..."
 export OPENAI_API_KEY="..."
 export OPENROUTER_API_KEY="..."
+export TAVILY_API_KEY="..."          # 可选；OpenAI/DeepSeek/OpenRouter 联网检索后端
 ```
 
 `app_data/` 已在 `.gitignore` 内，所以 key 与任务产物都不会被推送到
@@ -111,21 +120,25 @@ export OPENROUTER_API_KEY="..."
 
 ### Providers
 
-| Provider | 模式 | 模型 | 说明 |
-| --- | --- | --- | --- |
-| **Gemini Deep Research** | [Interactions API][gdr] | `deep-research-preview-04-2026`（默认） | 速度优先，约 80 次搜索查询 / 25 万输入 + 6 万输出 tokens，每任务约 $1–3。 |
-| **Gemini Deep Research Max** | [Interactions API][gdr] | `deep-research-max-preview-04-2026` | 全面性优先，约 160 次搜索查询 / 90 万输入 + 8 万输出 tokens，每任务约 $3–7，适合深度尽职调查。 |
-| DeepSeek | OpenAI 兼容 Chat Completions | `deepseek-v4-pro`（默认） | 低成本一次性报告生成。 |
-| OpenAI | Chat Completions | `gpt-5.5`（默认） | 通用一次性报告生成。 |
-| OpenRouter | OpenAI 兼容聚合接口 | `anthropic/claude-sonnet-4.6`（默认） | 一个端点访问多种模型。 |
+| Provider | 模式 | 联网检索 | 默认模型 | 说明 |
+| --- | --- | --- | --- | --- |
+| **Gemini Deep Research** | [Interactions API][gdr] | 原生 | `deep-research-preview-04-2026` | 速度优先，约 80 次搜索查询 / 25 万输入 + 6 万输出 tokens，每任务约 $1–3。 |
+| **Gemini Deep Research Max** | [Interactions API][gdr] | 原生 | `deep-research-max-preview-04-2026` | 全面性优先，约 160 次搜索查询 / 90 万输入 + 8 万输出 tokens，每任务约 $3–7，适合深度尽职调查。 |
+| **Anthropic Claude** | Messages API + 原生 `web_search` 工具 | 原生 | `claude-opus-4-7` | Claude 自己规划、检索、引用；默认 `max_uses=16`，引用以 `web_search_result_location` 形式返回，会自动汇总到「参考文献」章节。 |
+| DeepSeek | OpenAI 兼容 Chat Completions + Tavily 工具调用 | Tavily | `deepseek-v4-pro` | Agentic loop：模型用 `web_search(query)` 调 Tavily，最多 8 轮搜索后出报告。 |
+| OpenAI | Chat Completions + Tavily 工具调用 | Tavily | `gpt-5.5` | 同上。 |
+| OpenRouter | OpenAI 兼容聚合接口 + Tavily 工具调用 | Tavily | `anthropic/claude-sonnet-4.6` | 同上；一个端点访问 367+ 模型。 |
 
-> 两个 Gemini 模型最长运行 60 分钟（多数任务在 20 分钟内完成），价格
-> 为预览版费率，可能调整。详见 [官方文档][gdr]。
+> 两个 Gemini 模型最长运行 60 分钟（多数任务在 20 分钟内完成）。Anthropic
+> 任务通常 1–3 分钟，Tavily-agentic 任务通常 30 秒–2 分钟。价格、配额、
+> 模型 ID 都可能变动，详见各 provider 官方文档。
 
 ### 模型切换
 
 GUI 的 **API 设置 → Model / Agent** 字段是自由输入框，并提供下拉建议：
 
+- **Gemini**：`deep-research-preview-04-2026` / `deep-research-max-preview-04-2026`
+- **Anthropic**：`claude-opus-4-7` / `claude-sonnet-4-6` / `claude-haiku-4-5-20251001`
 - **OpenAI**：`gpt-5.5` / `gpt-5.5-pro` / `gpt-5.5-mini` / `gpt-5`
 - **DeepSeek**：`deepseek-v4-pro` / `deepseek-chat-v3.1`
 - **OpenRouter**：`anthropic/claude-sonnet-4.6` / `anthropic/claude-opus-4.7`
@@ -135,25 +148,31 @@ GUI 的 **API 设置 → Model / Agent** 字段是自由输入框，并提供下
 模型可随时切换，无需重启。新创建的任务会用当前 model；已存档的任务
 保留它运行时的 model 信息。
 
-只有 **Gemini** 路径会真正运行 research agent。DeepSeek / OpenAI /
-OpenRouter 是单次 Chat Completions 调用，不会自行联网搜索。
+> **未配置 Tavily key 时**：DeepSeek / OpenAI / OpenRouter 自动回退为
+> 单次 Chat Completions（无联网），过程日志中会标注。Anthropic / Gemini
+> 不受此影响（自带原生搜索）。
 
 ## 工作流
 
 ```mermaid
 flowchart LR
     A[输入研究要求] --> B{provider?}
-    B -->|Gemini Deep Research| C[interactions.create]
-    B -->|DeepSeek/OpenAI/OpenRouter| D[chat.completions]
-    C --> E[SSE 流：thoughts / tool_use / images]
-    E --> F[research_progress.md]
-    E --> G[images/]
-    C --> H[final response]
-    D --> H
-    H --> I[research_report.md]
-    I --> J[pandoc + xelatex]
-    J --> K[research_report.pdf]
-    I --> L[research_artifacts.zip]
+    B -->|Gemini DR / Max| C[interactions.create]
+    B -->|Anthropic Claude| D[messages + web_search]
+    B -->|OpenAI / DeepSeek / OpenRouter| E[chat.completions + tools]
+    C --> F[SSE 流：thoughts / tool_use / images]
+    D --> F
+    E --> G{tool_calls?}
+    G -->|yes| H[Tavily 搜索]
+    H --> E
+    G -->|no| I[final content]
+    F --> J[research_progress.md]
+    F --> K[images/]
+    F --> I
+    I --> L[research_report.md]
+    L --> M[pandoc + xelatex]
+    M --> N[research_report.pdf]
+    L --> O[research_artifacts.zip]
 ```
 
 ## 协作规划模式
@@ -189,8 +208,11 @@ flowchart LR
 详情面板提供：
 
 - **Markdown / PDF / ZIP** 下载（ZIP 把上述全部打包）
-- **规范引用**：重新扫描全文 `[N]` 编号，按出现顺序紧致重排，并补全
-  引用页面的元数据（标题、年份、域名、访问日期）。
+- **规范引用**：扫描报告中的 `## 参考文献` / `## Sources` / `## References`
+  章节，对每个引用 URL 抓取 `<title>`、`og:site_name`、发表年份与最终
+  跳转 URL（5 秒超时，跳过失败项），用 `标题 + URL + 访问日期` 重写
+  整个章节；原文备份为 `research_report.original.md`，并重新生成 PDF。
+  对 Gemini 输出的 `[cite:N]` 标记也会顺便替换为 `[N](url)` 形式。
 - **在 Finder 中显示**：直接打开任务目录。
 
 ## 架构
@@ -202,18 +224,21 @@ flowchart LR
 | --- | --- |
 | `app.py` | CLI 入口，串联 `core.config` 与 `core.server`。 |
 | `core/server.py` | HTTP 路由：任务、设置、静态文件、SSE。 |
-| `core/config.py` | 数据目录、provider 默认值、settings 读写、密钥掩码。 |
+| `core/config.py` | 数据目录、provider 默认值、Tavily key、settings 读写、密钥掩码。 |
 | `core/state.py` | 任务状态磁盘持久化与内存锁。 |
-| `core/worker.py` | 任务生命周期、线程、计划批准流程。 |
+| `core/worker.py` | 任务生命周期、线程、模式分发、计划批准流程。 |
 | `core/gemini.py` | Deep Research Interactions API 与 SSE 事件循环。 |
-| `core/chat.py` | DeepSeek / OpenAI / OpenRouter 的 Chat Completions。 |
+| `core/anthropic.py` | Anthropic messages API + 原生 `web_search` 工具的流式适配。 |
+| `core/openai_research.py` | OpenAI 兼容 provider 的 agentic loop（tool_use + Tavily）。 |
+| `core/chat.py` | 单次 Chat Completions（Tavily key 缺失时的 fallback）。 |
+| `core/tavily.py` | Tavily 搜索 API 的 stdlib 客户端。 |
 | `core/citations.py` | 来源元数据抓取与数字编号引用。 |
 | `core/exporters.py` | Markdown → PDF（pandoc）与 ZIP 打包。 |
 | `core/http_client.py` | 基于 stdlib `urllib` 的最小 JSON 客户端。 |
 | `core/common.py` | `utc_now`、`slugify` 与 JSON 文件辅助函数。 |
 
 模块间 import 形成 DAG：
-`common → config → state, http_client → citations, exporters → gemini, chat → worker → server`。
+`common → config → state, http_client, tavily → citations, exporters → gemini, anthropic, openai_research, chat → worker → server`。
 
 前端是 `static/index.html` + `static/app.js` + `static/styles.css`，
 原生 JS，无打包工具。
@@ -270,23 +295,26 @@ python3 app.py --port 8766          # 不要踩生产用的 8765
 
 ## 已知限制
 
-- **DeepSeek / OpenAI / OpenRouter 不联网**：当前只是单次 Chat
-  Completions，不会主动检索；只有 Gemini 路径是真正的 research agent。
+- **OpenAI / DeepSeek / OpenRouter 必须配 Tavily key 才能联网**：未配置
+  时自动回退为单次 Chat Completions（无搜索）；过程日志会标注。Anthropic
+  与 Gemini 自带原生搜索，不受影响。
 - **单进程、无并发上限**：所有任务跑在同一个 Python 进程的线程池里；
   超过 ~10 个并发任务可能挤占 SSE 带宽。
 - **无鉴权层**：默认监听 `127.0.0.1`，没有登录校验；如需对外暴露，请
   自行加鉴权（反向代理 + Basic Auth / OAuth）。
 - **PDF 中文排版**：依赖 `texlive-lang-cjk`；缺字体时会回退到默认
   XeLaTeX 字体，可能显示豆腐方块。
-- **Gemini Deep Research 仍是 preview**：API 模型名、价格、配额都可能
-  变动；请以 [官方文档][gdr] 为准。
+- **Gemini Deep Research / Anthropic web_search 仍是 preview**：API 模型
+  名、价格、配额都可能变动；请以各家官方文档为准。
 
 ## Roadmap
 
 近期计划（不构成承诺）：
 
-- [ ] 给 DeepSeek / OpenAI / OpenRouter 接一条可选的搜索抓取流水线，让
-      非 Gemini 路径也能联网。
+- [x] ~~给非 Gemini provider 加联网检索能力~~（已实现：Anthropic 用原生
+      web_search，OpenAI / DeepSeek / OpenRouter 用 Tavily agentic loop）。
+- [ ] 把 OpenAI 的 Responses API 原生 web_search 也作为可选后端，免去
+      Tavily key。
 - [ ] 任务标签与全文搜索。
 - [ ] 多窗口同时跑任务的 UI 适配。
 - [ ] 单元测试与 CI（GitHub Actions）。
@@ -305,10 +333,11 @@ MIT，见 [LICENSE](LICENSE)。
 
 ## English
 
-A local Python web GUI for running and archiving long-running research
-jobs against [Gemini Deep Research][gdr] and OpenAI-compatible providers
-(DeepSeek, OpenAI, OpenRouter). All API keys, job state, and outputs stay
-on your local machine.
+A local Python web GUI for running and archiving long-running, **fully
+web-grounded** research jobs against [Gemini Deep Research][gdr],
+Anthropic Claude (native `web_search`), and OpenAI-compatible providers
+(DeepSeek, OpenAI, OpenRouter — agentic loop powered by Tavily search).
+All API keys, job state, and outputs stay on your local machine.
 
 ### Screenshots
 
@@ -322,13 +351,17 @@ include inline figures and clickable numbered citations.
 
 ### Highlights
 
-- **Gemini Deep Research, end to end** — long-running interactions, SSE
-  streaming, collaborative planning, citations, inline figures, plan
-  approval/refinement loop; switch to **Deep Research Max** for higher
-  query volume and context, suited to in-depth due diligence and
-  competitive analysis.
-- **Three OpenAI-compatible fallbacks** — DeepSeek, OpenAI, OpenRouter via
-  Chat Completions, useful for cheaper drafts and offline-friendly post-edit.
+- **All five providers actually search the web**:
+  - **Gemini Deep Research / Max** — native long-running interactions,
+    SSE streaming, collaborative planning, plan approval/refinement loop;
+    Max ships higher query volume and context, suited to deep due
+    diligence and competitive analysis.
+  - **Anthropic Claude** — messages API + native `web_search` tool, no
+    extra search backend; defaults to `claude-opus-4-7`.
+  - **DeepSeek / OpenAI / OpenRouter** — agentic loop (OpenAI tool calls
+    + Tavily search): the model writes its own queries, reads snippets,
+    decides when to stop, and emits a Markdown report with numbered
+    inline citations.
 - **Local-first** — server binds to `127.0.0.1`; settings, job state, and
   generated artifacts live under `app_data/` and are gitignored by default.
 - **Per-job archive** — every run produces Markdown + PDF + a single ZIP
@@ -389,9 +422,11 @@ python3 app.py --host 127.0.0.1 --port 8765
 | Provider | Console | Notes |
 | --- | --- | --- |
 | **Gemini Deep Research** | [aistudio.google.com](https://aistudio.google.com/apikey) | Create an API key in Google AI Studio. Deep Research is in preview; ensure your key has access. |
+| **Anthropic Claude** | [console.anthropic.com](https://console.anthropic.com/settings/keys) | Anthropic console → API Keys; Opus 4.7 supports native `web_search`, Tavily not required. |
 | **DeepSeek** | [platform.deepseek.com](https://platform.deepseek.com/api_keys) | Sign up, then create a key on the API Keys page. |
 | **OpenAI** | [platform.openai.com](https://platform.openai.com/api-keys) | OpenAI account → API Keys → Create secret key. |
 | **OpenRouter** | [openrouter.ai/keys](https://openrouter.ai/keys) | One key reaches 367+ models, pay-per-call. |
+| **Tavily (search backend)** | [tavily.com](https://tavily.com) | Search engine for the DeepSeek / OpenAI / OpenRouter agentic loop; free tier 1,000 queries/month. Anthropic and Gemini do not need it. |
 
 ### Configuration
 
@@ -401,32 +436,38 @@ when both are set.
 
 ```bash
 export GEMINI_API_KEY="..."
+export ANTHROPIC_API_KEY="..."
 export DEEPSEEK_API_KEY="..."
 export OPENAI_API_KEY="..."
 export OPENROUTER_API_KEY="..."
+export TAVILY_API_KEY="..."          # optional; search backend for OpenAI/DeepSeek/OpenRouter
 ```
 
 `app_data/` is in `.gitignore`, so neither keys nor job outputs are pushed.
 
 #### Providers
 
-| Provider | Mode | Model | Notes |
-| --- | --- | --- | --- |
-| **Gemini Deep Research** | [Interactions API][gdr] | `deep-research-preview-04-2026` (default) | Speed-oriented; ~80 search queries / ~250k input + ~60k output tokens; ~$1–3 per task. |
-| **Gemini Deep Research Max** | [Interactions API][gdr] | `deep-research-max-preview-04-2026` | Comprehensiveness-oriented; ~160 search queries / ~900k input + ~80k output tokens; ~$3–7 per task; suited to deep due diligence. |
-| DeepSeek | OpenAI-compatible Chat Completions | `deepseek-v4-pro` (default) | Low-cost single-shot report generation. |
-| OpenAI | Chat Completions | `gpt-5.5` (default) | Single-shot report generation. |
-| OpenRouter | OpenAI-compatible aggregator | `anthropic/claude-sonnet-4.6` (default) | Access many models via one endpoint. |
+| Provider | Mode | Web search | Default model | Notes |
+| --- | --- | --- | --- | --- |
+| **Gemini Deep Research** | [Interactions API][gdr] | native | `deep-research-preview-04-2026` | Speed-oriented; ~80 search queries / ~250k input + ~60k output tokens; ~$1–3 per task. |
+| **Gemini Deep Research Max** | [Interactions API][gdr] | native | `deep-research-max-preview-04-2026` | Comprehensiveness-oriented; ~160 search queries / ~900k input + ~80k output tokens; ~$3–7 per task; suited to deep due diligence. |
+| **Anthropic Claude** | Messages API + native `web_search` tool | native | `claude-opus-4-7` | Claude plans queries, searches, and cites itself; default `max_uses=16`; citations are returned as `web_search_result_location` and rolled up into the «参考文献» section. |
+| DeepSeek | OpenAI-compatible Chat Completions + Tavily tool calls | Tavily | `deepseek-v4-pro` | Agentic loop: model invokes `web_search(query)` against Tavily, up to 8 rounds, then writes the report. |
+| OpenAI | Chat Completions + Tavily tool calls | Tavily | `gpt-5.5` | Same as above. |
+| OpenRouter | OpenAI-compatible aggregator + Tavily tool calls | Tavily | `anthropic/claude-sonnet-4.6` | Same as above; one endpoint reaches 367+ models. |
 
-> Both Gemini models run up to 60 minutes (most tasks finish within 20).
-> Pricing is preview-tier and may change — see the
-> [official docs][gdr] for current details.
+> Gemini jobs cap at 60 minutes (most finish within 20). Anthropic jobs
+> typically take 1–3 minutes; Tavily-agentic jobs typically take
+> 30 sec–2 min. Pricing, quotas and model IDs may change — see each
+> provider's docs.
 
 #### Switching models
 
 The **API 设置 → Model / Agent** field is a free-form input with autocomplete
 suggestions:
 
+- **Gemini**: `deep-research-preview-04-2026` / `deep-research-max-preview-04-2026`
+- **Anthropic**: `claude-opus-4-7` / `claude-sonnet-4-6` / `claude-haiku-4-5-20251001`
 - **OpenAI**: `gpt-5.5` / `gpt-5.5-pro` / `gpt-5.5-mini` / `gpt-5`
 - **DeepSeek**: `deepseek-v4-pro` / `deepseek-chat-v3.1`
 - **OpenRouter**: `anthropic/claude-sonnet-4.6` / `anthropic/claude-opus-4.7`
@@ -436,26 +477,32 @@ suggestions:
 Models can be changed any time without restarting. New jobs use the current
 model; archived jobs preserve the model they ran with.
 
-Only the Gemini path runs an actual research agent. DeepSeek / OpenAI /
-OpenRouter make a single Chat Completions call against the topic — they do
-not search the web on their own.
+> **Without a Tavily key**, DeepSeek / OpenAI / OpenRouter automatically
+> fall back to a single Chat Completions call (no web search), and the
+> progress log says so. Anthropic and Gemini are unaffected (they have
+> their own native search).
 
 ### Workflow
 
 ```mermaid
 flowchart LR
     A[Topic input] --> B{provider?}
-    B -->|Gemini Deep Research| C[interactions.create]
-    B -->|DeepSeek/OpenAI/OpenRouter| D[chat.completions]
-    C --> E[SSE stream: thoughts / tool_use / images]
-    E --> F[research_progress.md]
-    E --> G[images/]
-    C --> H[final response]
-    D --> H
-    H --> I[research_report.md]
-    I --> J[pandoc + xelatex]
-    J --> K[research_report.pdf]
-    I --> L[research_artifacts.zip]
+    B -->|Gemini DR / Max| C[interactions.create]
+    B -->|Anthropic Claude| D[messages + web_search]
+    B -->|OpenAI / DeepSeek / OpenRouter| E[chat.completions + tools]
+    C --> F[SSE stream: thoughts / tool_use / images]
+    D --> F
+    E --> G{tool_calls?}
+    G -->|yes| H[Tavily search]
+    H --> E
+    G -->|no| I[final content]
+    F --> J[research_progress.md]
+    F --> K[images/]
+    F --> I
+    I --> L[research_report.md]
+    L --> M[pandoc + xelatex]
+    M --> N[research_report.pdf]
+    L --> O[research_artifacts.zip]
 ```
 
 ### Collaborative Planning
@@ -494,8 +541,13 @@ Each job is saved to `app_data/jobs/<slug>-<id>/`:
 Detail-pane actions:
 
 - **Markdown / PDF / ZIP** downloads (ZIP packs everything above)
-- **规范引用** — rescan all `[N]` markers, renumber compactly by order of
-  appearance, and backfill metadata (title, year, domain, access date).
+- **规范引用** — scans the report for a `## 参考文献` / `## Sources` /
+  `## References` section, fetches each cited URL's `<title>`,
+  `og:site_name`, publication year and final redirect URL (5 sec timeout,
+  failures skipped), and rewrites the section as `title + URL + access
+  date`. The original is backed up to `research_report.original.md`, and
+  the PDF is regenerated. For Gemini's `[cite:N]` legacy markers, those
+  are also replaced with `[N](url)` form along the way.
 - **在 Finder 中显示** — open the job folder.
 
 ### Architecture
@@ -507,18 +559,21 @@ step. Logic is split across `core/`:
 | --- | --- |
 | `app.py` | CLI entrypoint. Wires `core.config` and `core.server`. |
 | `core/server.py` | HTTP routing for jobs, settings, static files, SSE. |
-| `core/config.py` | Data dirs, provider defaults, settings load/save, secret masking. |
+| `core/config.py` | Data dirs, provider defaults, Tavily key, settings load/save, secret masking. |
 | `core/state.py` | Per-job state on disk + in-memory locks. |
-| `core/worker.py` | Job lifecycle, threading, plan approval flow. |
+| `core/worker.py` | Job lifecycle, threading, mode dispatch, plan approval flow. |
 | `core/gemini.py` | Deep Research Interactions API + SSE event loop. |
-| `core/chat.py` | OpenAI-compatible Chat Completions for DeepSeek/OpenAI/OpenRouter. |
+| `core/anthropic.py` | Anthropic messages API + native `web_search` streaming adapter. |
+| `core/openai_research.py` | Agentic loop for OpenAI-compatible providers (tool_use + Tavily). |
+| `core/chat.py` | Single-shot OpenAI-compatible Chat Completions (fallback when Tavily key is missing). |
+| `core/tavily.py` | stdlib client for the Tavily search API. |
 | `core/citations.py` | Source metadata fetch, numbered references. |
 | `core/exporters.py` | Markdown → PDF via pandoc, ZIP packaging. |
 | `core/http_client.py` | Minimal stdlib `urllib` JSON wrapper. |
 | `core/common.py` | `utc_now`, `slugify`, JSON file helpers. |
 
 Imports form a DAG:
-`common → config → state, http_client → citations, exporters → gemini, chat → worker → server`.
+`common → config → state, http_client, tavily → citations, exporters → gemini, anthropic, openai_research, chat → worker → server`.
 
 The frontend is `static/index.html` + `static/app.js` + `static/styles.css`.
 Vanilla JS, no bundler.
@@ -577,24 +632,29 @@ Issues and pull requests are welcome.
 
 ### Known limits
 
-- **DeepSeek / OpenAI / OpenRouter don't search the web** — they're a
-  single Chat Completions call; only the Gemini path is a real research
-  agent.
+- **OpenAI / DeepSeek / OpenRouter need a Tavily key to actually browse**
+  — without one they fall back to a single Chat Completions call (no web
+  search) and the progress log says so. Anthropic and Gemini have native
+  search, unaffected.
 - **Single process, no concurrency cap** — all jobs run in one Python
   process's thread pool; > ~10 concurrent jobs may saturate SSE bandwidth.
 - **No auth layer** — listens on `127.0.0.1` only. Add your own auth
   (reverse proxy + Basic Auth / OAuth) before exposing externally.
 - **CJK PDF rendering** — needs `texlive-lang-cjk`; missing fonts fall back
   to default XeLaTeX, which can render tofu blocks.
-- **Gemini Deep Research is still preview** — model IDs, pricing and
-  quotas may change; rely on the [official docs][gdr].
+- **Gemini Deep Research / Anthropic web_search are still preview** — model
+  IDs, pricing and quotas may change; rely on each provider's official
+  docs.
 
 ### Roadmap
 
 Tentative (not commitments):
 
-- [ ] Optional web-search pipeline for DeepSeek / OpenAI / OpenRouter so
-      non-Gemini providers can also browse.
+- [x] ~~Web-search pipeline for non-Gemini providers~~ (done: Anthropic
+      uses native `web_search`; OpenAI / DeepSeek / OpenRouter use a
+      Tavily-backed agentic loop).
+- [ ] Plug OpenAI's Responses API native `web_search` in as an alternate
+      backend so a Tavily key isn't required.
 - [ ] Job tags and full-text search.
 - [ ] Multi-window UI for running parallel jobs.
 - [ ] Unit tests + CI (GitHub Actions).

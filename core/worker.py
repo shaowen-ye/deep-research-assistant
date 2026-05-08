@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime
 from urllib import error, request
 
+from .anthropic import run_anthropic_job
 from .chat import run_chat_job
 from .citations import citation_metadata_for_sources, normalize_citations, parse_sources
 from .common import append_text, read_json, slugify, utc_now, write_json
@@ -14,12 +15,14 @@ from .config import (
     DEFAULT_AGENT,
     POLL_BACKOFF_SECONDS,
     PROVIDER_DEFAULTS,
+    get_tavily_key,
     load_settings,
     provider_config,
     public_settings,
 )
 from .exporters import write_pdf_from_markdown
 from .gemini import build_stream_request, fetch_final_report, handle_event, iter_sse
+from .openai_research import run_openai_research_job
 from .state import (
     RUNNING,
     RUNNING_LOCK,
@@ -50,9 +53,32 @@ def worker(job_id):
             RUNNING.pop(job_id, None)
         return
 
-    if config["mode"] == "openai_chat":
+    if config["mode"] == "anthropic_research":
         try:
-            run_chat_job(job_id, state, config)
+            run_anthropic_job(job_id, state, config)
+        except Exception as exc:
+            state = load_state(job_id)
+            state["local_status"] = "failed"
+            state["error"] = repr(exc)
+            save_state(job_id, state)
+        finally:
+            with RUNNING_LOCK:
+                RUNNING.pop(job_id, None)
+        return
+
+    if config["mode"] == "openai_chat":
+        tavily_key = get_tavily_key()
+        progress_path = job_dir(job_id) / "research_progress.md"
+        try:
+            if tavily_key:
+                run_openai_research_job(job_id, state, config, tavily_key)
+            else:
+                append_text(
+                    progress_path,
+                    f"[{utc_now()}] ⚠ 未配置 Tavily API key，回退到单次 Chat Completions"
+                    "（无联网搜索）。设置 → 搜索引擎 / Tavily 中填入 key 后即可启用 agentic 研究。\n",
+                )
+                run_chat_job(job_id, state, config)
         except Exception as exc:
             state = load_state(job_id)
             state["local_status"] = "failed"
@@ -211,9 +237,10 @@ def create_job(payload):
         "provider": provider,
         "provider_label": config["label"],
         "provider_mode": config["mode"],
+        "provider_search": config.get("search", "none"),
         "agent": payload.get("agent") or (config["model"] if provider == "gemini" else None),
         "model": payload.get("model") or config["model"],
-        "base_url": config["base_url"] if provider == "gemini" else None,
+        "base_url": config["base_url"],
         "include_visuals": include_visuals,
         "collaborative_planning": collaborative_planning,
         "workflow_phase": "planning" if collaborative_planning else "executing",
@@ -307,6 +334,7 @@ def health():
     return {
         "api_key_configured": any(item["configured"] for item in settings["providers"].values()),
         "providers": settings["providers"],
+        "tavily": settings["tavily"],
         "pandoc": shutil.which("pandoc"),
         "xelatex": shutil.which("xelatex"),
         "data_dir": str(DATA_DIR),

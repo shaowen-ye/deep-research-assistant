@@ -152,8 +152,15 @@ def fetch_source_metadata(url, label):
     return metadata
 
 
+SOURCES_HEADER_PATTERN = (
+    r"(?ims)\n(?:\*\*(?:Sources|References|参考文献)(?::|：)?\*\*"
+    r"|#+\s*(?:Sources|References|参考文献))\s*\n(.+?)"
+    r"(?=\n#+\s|\Z)"
+)
+
+
 def parse_sources(markdown):
-    match = re.search(r"(?ims)\n(?:\*\*Sources:\*\*|#+\s*Sources)\s*\n(.+)\s*$", markdown)
+    match = re.search(SOURCES_HEADER_PATTERN, markdown)
     if not match:
         return None, []
 

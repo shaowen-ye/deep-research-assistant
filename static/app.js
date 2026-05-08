@@ -7,6 +7,7 @@ const $ = (id) => document.getElementById(id);
 
 const MODEL_SUGGESTIONS = {
   gemini: ["deep-research-preview-04-2026", "deep-research-max-preview-04-2026"],
+  anthropic: ["claude-opus-4-7", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"],
   deepseek: ["deepseek-v4-pro", "deepseek-chat-v3.1"],
   openai: ["gpt-5.5", "gpt-5.5-pro", "gpt-5.5-mini", "gpt-5"],
   openrouter: [
@@ -68,14 +69,45 @@ async function loadHealth() {
   const data = await api("/api/health");
   const configured = Object.values(data.providers || {}).filter((item) => item.configured).length;
   const key = configured ? `${configured} 个 API 已配置` : "缺少 API key";
-  const pdf = data.pandoc && data.xelatex ? "PDF 可用" : "PDF 工具缺失";
-  $("health").textContent = `${key} · ${pdf}`;
+  const tav = data.tavily && data.tavily.configured ? "Tavily ✓" : "Tavily ✗";
+  const pdf = data.pandoc && data.xelatex ? "PDF ✓" : "PDF ✗";
+  $("health").textContent = `${key} · ${tav} · ${pdf}`;
 }
 
 async function loadSettings() {
   settings = await api("/api/settings");
   renderProviderSelect();
+  renderTavily();
   renderSettings();
+}
+
+function renderTavily() {
+  const t = (settings && settings.tavily) || {};
+  const status = t.configured
+    ? `<span class="badge completed">已配置 ${escapeHtml(t.key_source || "")}</span>`
+    : `<span class="badge failed">未配置</span>`;
+  const note = t.configured
+    ? `Anthropic 用原生 web_search；OpenAI / DeepSeek / OpenRouter 通过 Tavily 联网研究。`
+    : `未配置时，OpenAI / DeepSeek / OpenRouter 将退化为单次 Chat（无联网）；Anthropic 不受影响（用原生 web_search）。`;
+  const section = $("tavilySection");
+  if (!section) return;
+  section.innerHTML = `
+    <div class="provider-settings tavily">
+      <div class="provider-head">
+        <strong>搜索引擎 / Tavily API Key</strong>
+        ${status}
+      </div>
+      <p class="note">${note} 申请：<a href="https://tavily.com" target="_blank" rel="noopener">tavily.com</a>（免费 1000 查询 / 月）。</p>
+      <label>
+        Tavily API Key ${t.configured ? "（已配置）" : ""}
+        <input id="tavilyKey" type="password" placeholder="留空则保持现有 key" autocomplete="off" />
+      </label>
+      <label class="check">
+        <input id="tavilyClear" type="checkbox" />
+        清除已保存的 Tavily key
+      </label>
+    </div>
+  `;
 }
 
 function renderProviderSelect() {
@@ -108,9 +140,36 @@ function updateAgentChoices() {
       <option value="deep-research-preview-04-2026">Deep Research</option>
       <option value="deep-research-max-preview-04-2026">Deep Research Max</option>
     `;
+  } else if (providerId === "anthropic") {
+    const opts = [
+      ["claude-opus-4-7", "Opus 4.7（推荐）"],
+      ["claude-sonnet-4-6", "Sonnet 4.6"],
+      ["claude-haiku-4-5-20251001", "Haiku 4.5"],
+    ];
+    if (provider.model && !opts.some(([v]) => v === provider.model)) {
+      opts.unshift([provider.model, provider.model]);
+    }
+    agent.innerHTML = opts
+      .map(([v, label]) => `<option value="${escapeHtml(v)}">${escapeHtml(label)}</option>`)
+      .join("");
+    if (provider.model) agent.value = provider.model;
   } else {
     agent.innerHTML = `<option value="${escapeHtml(provider.model)}">${escapeHtml(provider.model)}</option>`;
   }
+}
+
+function searchBadge(provider) {
+  const search = provider.search;
+  const tavConfigured = settings && settings.tavily && settings.tavily.configured;
+  if (search === "native") {
+    return `<span class="badge running">原生联网搜索</span>`;
+  }
+  if (search === "tavily") {
+    return tavConfigured
+      ? `<span class="badge completed">已联网（Tavily）</span>`
+      : `<span class="badge failed">需 Tavily key 才能联网</span>`;
+  }
+  return "";
 }
 
 function renderSettings() {
@@ -128,6 +187,7 @@ function renderSettings() {
         <span class="badge ${provider.configured ? "completed" : "failed"}">
           ${provider.configured ? `已配置 ${provider.key_source}` : "未配置"}
         </span>
+        ${searchBadge(provider)}
       </div>
       <label>
         API Key ${provider.configured ? "（已配置）" : ""}
@@ -157,7 +217,7 @@ function renderSettings() {
 async function saveSettings() {
   const providers = {};
   const editedProvider = $("settingsProvider").value;
-  document.querySelectorAll(".provider-settings").forEach((block) => {
+  document.querySelectorAll(".provider-settings[data-provider]").forEach((block) => {
     const id = block.dataset.provider;
     providers[id] = {};
     block.querySelectorAll("[data-field]").forEach((input) => {
@@ -167,14 +227,22 @@ async function saveSettings() {
   });
 
   const selectedProvider = $("provider").value;
+  const tavilyKey = ($("tavilyKey") && $("tavilyKey").value.trim()) || "";
+  const tavilyClear = !!($("tavilyClear") && $("tavilyClear").checked);
+
+  const payload = {
+    default_provider: selectedProvider,
+    providers,
+  };
+  if (tavilyClear) payload.clear_tavily_key = true;
+  else if (tavilyKey) payload.tavily_api_key = tavilyKey;
+
   settings = await api("/api/settings", {
     method: "POST",
-    body: JSON.stringify({
-      default_provider: selectedProvider,
-      providers,
-    }),
+    body: JSON.stringify(payload),
   });
   renderProviderSelect();
+  renderTavily();
   $("provider").value = selectedProvider;
   $("settingsProvider").value = editedProvider;
   updateAgentChoices();

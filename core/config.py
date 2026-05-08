@@ -15,6 +15,8 @@ MAX_AGENT = "deep-research-max-preview-04-2026"
 CONNECT_TIMEOUT_SECONDS = 120
 POLL_BACKOFF_SECONDS = 5
 
+TAVILY_ENV_KEY = "TAVILY_API_KEY"
+
 PROVIDER_DEFAULTS = {
     "gemini": {
         "label": "Gemini Deep Research",
@@ -22,6 +24,15 @@ PROVIDER_DEFAULTS = {
         "base_url": "https://generativelanguage.googleapis.com/v1beta/interactions",
         "model": DEFAULT_AGENT,
         "mode": "deep_research",
+        "search": "native",
+    },
+    "anthropic": {
+        "label": "Anthropic Claude (Research)",
+        "env_key": "ANTHROPIC_API_KEY",
+        "base_url": "https://api.anthropic.com",
+        "model": "claude-opus-4-7",
+        "mode": "anthropic_research",
+        "search": "native",
     },
     "deepseek": {
         "label": "DeepSeek",
@@ -29,6 +40,7 @@ PROVIDER_DEFAULTS = {
         "base_url": "https://api.deepseek.com",
         "model": "deepseek-v4-pro",
         "mode": "openai_chat",
+        "search": "tavily",
     },
     "openai": {
         "label": "OpenAI",
@@ -36,6 +48,7 @@ PROVIDER_DEFAULTS = {
         "base_url": "https://api.openai.com/v1",
         "model": "gpt-5.5",
         "mode": "openai_chat",
+        "search": "tavily",
     },
     "openrouter": {
         "label": "OpenRouter",
@@ -43,6 +56,7 @@ PROVIDER_DEFAULTS = {
         "base_url": "https://openrouter.ai/api/v1",
         "model": "anthropic/claude-sonnet-4.6",
         "mode": "openai_chat",
+        "search": "tavily",
     },
 }
 
@@ -57,6 +71,7 @@ def ensure_dirs():
 def default_settings():
     return {
         "default_provider": "gemini",
+        "tavily_api_key": "",
         "providers": {
             provider: {
                 "api_key": "",
@@ -72,12 +87,18 @@ def load_settings():
     settings = read_json(SETTINGS_FILE, None) or default_settings()
     defaults = default_settings()
     settings.setdefault("default_provider", defaults["default_provider"])
+    settings.setdefault("tavily_api_key", defaults["tavily_api_key"])
     settings.setdefault("providers", {})
     for provider, provider_defaults in defaults["providers"].items():
         settings["providers"].setdefault(provider, {})
         for key, value in provider_defaults.items():
             settings["providers"][provider].setdefault(key, value)
     return settings
+
+
+def get_tavily_key():
+    settings = load_settings()
+    return (settings.get("tavily_api_key") or "").strip() or os.getenv(TAVILY_ENV_KEY) or ""
 
 
 def save_settings(settings):
@@ -105,6 +126,7 @@ def provider_config(provider):
         "label": defaults["label"],
         "mode": defaults["mode"],
         "env_key": defaults["env_key"],
+        "search": defaults.get("search", "none"),
         "api_key": api_key,
         "base_url": saved.get("base_url") or defaults["base_url"],
         "model": saved.get("model") or defaults["model"],
@@ -121,6 +143,7 @@ def public_settings():
         providers[provider] = {
             "label": defaults["label"],
             "mode": defaults["mode"],
+            "search": defaults.get("search", "none"),
             "env_key": defaults["env_key"],
             "configured": bool(local_key or env_key),
             "key_source": "GUI" if local_key else ("env" if env_key else ""),
@@ -128,9 +151,17 @@ def public_settings():
             "base_url": saved.get("base_url") or defaults["base_url"],
             "model": saved.get("model") or defaults["model"],
         }
+    tavily_local = (settings.get("tavily_api_key") or "").strip()
+    tavily_env = os.getenv(TAVILY_ENV_KEY) or ""
     return {
         "default_provider": settings.get("default_provider", "gemini"),
         "providers": providers,
+        "tavily": {
+            "env_key": TAVILY_ENV_KEY,
+            "configured": bool(tavily_local or tavily_env),
+            "key_source": "GUI" if tavily_local else ("env" if tavily_env else ""),
+            "masked_key": mask_secret(tavily_local or tavily_env),
+        },
     }
 
 
@@ -138,6 +169,13 @@ def update_settings(payload):
     settings = load_settings()
     if payload.get("default_provider") in PROVIDER_DEFAULTS:
         settings["default_provider"] = payload["default_provider"]
+
+    if payload.get("clear_tavily_key"):
+        settings["tavily_api_key"] = ""
+    elif "tavily_api_key" in payload:
+        value = payload.get("tavily_api_key")
+        if isinstance(value, str) and value.strip():
+            settings["tavily_api_key"] = value.strip()
 
     incoming = payload.get("providers") or {}
     for provider, values in incoming.items():
