@@ -57,7 +57,7 @@ export OPENAI_API_KEY="your-openai-api-key"
 export OPENROUTER_API_KEY="your-openrouter-api-key"
 ```
 
-GUI 中保存的 key 优先级高于环境变量。不要把真实 API key 写入仓库文件。
+GUI 中保存的 key 优先级高于环境变量。
 
 ### Provider
 
@@ -114,12 +114,10 @@ xelatex
 
 如果缺少这些工具，报告仍会生成 Markdown，PDF 会跳过。
 
-### 安全说明
+### 本地范围
 
-- 仓库不会提交 `app_data/`、`.venv/`、测试输出、API 原始返回和本地报告文件。
-- API key 只应保存在本地 GUI 设置或环境变量中。
-- 默认只监听 `127.0.0.1`，适合个人本机使用。
-- 当前版本没有登录鉴权，不要直接暴露到公网。
+- `app_data/`、`.venv/`、生成的报告与原始 API 返回都已在 `.gitignore` 内，留在本机。
+- 默认只监听 `127.0.0.1`，没有鉴权层，适合个人本机使用；若改成对外监听，请自行加鉴权。
 
 ---
 
@@ -180,7 +178,7 @@ export OPENAI_API_KEY="your-openai-api-key"
 export OPENROUTER_API_KEY="your-openrouter-api-key"
 ```
 
-Keys saved in the GUI take priority over environment variables. Do not write real API keys into repository files.
+Keys saved in the GUI take priority over environment variables.
 
 ### Providers
 
@@ -237,9 +235,7 @@ xelatex
 
 If they are missing, Markdown reports still work, and PDF generation is skipped.
 
-### Safety Notes
+### Local Scope
 
-- The repository excludes `app_data/`, `.venv/`, test outputs, raw API responses, and local generated reports.
-- API keys should only be stored in local GUI settings or environment variables.
-- The server listens on `127.0.0.1` by default for local personal use.
-- This version has no authentication layer. Do not expose it directly to the public internet.
+- `app_data/`, `.venv/`, generated reports, and raw API responses are all in `.gitignore` and stay on the local machine.
+- The server listens on `127.0.0.1` by default and has no authentication layer; add one if you bind to a non-loopback interface.

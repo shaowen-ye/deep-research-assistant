@@ -10,7 +10,7 @@
     <header class="topbar">
       <div>
         <h1>Gemini Deep Research</h1>
-        <p>本地任务管理、断线恢复、Markdown/PDF/图表归档</p>
+        <p>本地任务管理与归档</p>
       </div>
       <div class="top-actions">
         <div class="font-controls" aria-label="字体大小">
@@ -39,13 +39,24 @@
         </label>
         <label>
           研究要求
-          <textarea id="topic" spellcheck="false">请研究：Claude Code、Gemini CLI、OpenAI Codex CLI、DeepSeek 在个人开发者编程工作流中的优缺点。
-请输出中文报告，包含：
-1. 总结
-2. 功能对比表
-3. 适合个人 MacBook 用户的推荐组合
-4. 成本和隐私风险
-5. 结论</textarea>
+          <textarea id="topic" spellcheck="false">请系统综述 2015 年以来内陆水体增殖放流（stock enhancement）的生态效应与管理策略。
+
+研究范围
+- 时间窗：2015 年至今，以同行评审文献为主，必要时纳入早期奠基性工作。
+- 区域：中国主要流域（长江、珠江、东南沿海水库）以及国际典型案例（北美鲑鳟、北欧鳗鲡放流计划）。
+- 物种：青、草、鲢、鳙、鲤等经济鱼类，以及具有保护意义的本地物种。
+
+核心问题
+1. 放流对受体水体种群密度、年龄结构和生长速率的短期与长期影响。
+2. 放流对野生群体遗传多样性的稀释效应与基因渐渗（introgression）证据。
+3. 放流策略（亲本来源、规格、密度、时序）与生态匹配度的关键变量。
+4. 评估方法的优劣对比：标志重捕、eDNA、SNP 群体遗传分析、个体基础模型（IBM）。
+5. 现行管理框架（许可、生态影响评价、放流技术规范）的缺口与改进方向。
+
+输出要求
+- 中文学术综述风格，结构包含：摘要、研究背景、文献综述、典型案例对比、方法学讨论、争议与不确定性、政策建议、结论。
+- 至少 2 张图表，例如不同放流策略下的种群响应对比图、典型遗传多样性指标（He、Fst）汇总表。
+- 引用偏好：同行评审英文期刊（如 Fisheries Research、Journal of Fish Biology、ICES Journal of Marine Science）与中文核心期刊；区分一手研究与综述，灰色文献仅在必要时引用。</textarea>
         </label>
         <div class="row">
           <label>
@@ -55,12 +66,12 @@
               <option value="deep-research-max-preview-04-2026">Deep Research Max</option>
             </select>
           </label>
-          <label class="check">
+          <label id="includeVisualsLabel" class="check">
             <input id="includeVisuals" type="checkbox" checked />
-            生成图表
+            <span id="includeVisualsText">生成图表</span>
           </label>
         </div>
-        <label class="check">
+        <label id="collabLabel" class="check">
           <input id="collab" type="checkbox" />
           协作规划模式
         </label>

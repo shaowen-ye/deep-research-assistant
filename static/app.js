@@ -83,8 +83,10 @@ function updateAgentChoices() {
   const provider = settings && settings.providers ? settings.providers[providerId] : null;
   const agent = $("agent");
   if (!provider) return;
-  $("collab").disabled = providerId !== "gemini";
-  if (providerId !== "gemini") $("collab").checked = false;
+  const isGemini = providerId === "gemini";
+  $("collabLabel").style.display = isGemini ? "" : "none";
+  if (!isGemini) $("collab").checked = false;
+  $("includeVisualsText").textContent = isGemini ? "生成图表" : "用表格可视化";
 
   if (providerId === "gemini") {
     agent.innerHTML = `
@@ -228,14 +230,6 @@ function renderJobs() {
       const stopButton = canStopJob(job)
         ? `<button data-action="stop" data-id="${job.id}">停止</button>`
         : "";
-      const resumeButton = canResumeJob(job)
-        ? `<button data-action="resume" data-id="${job.id}">恢复</button>`
-        : "";
-      const hint = job.local_status === "completed"
-        ? "点击查看报告和下载"
-        : job.local_status === "awaiting_approval"
-          ? "点击审阅研究计划"
-          : "点击查看详情";
       return `
         <article class="job${active}" data-id="${job.id}">
           <div class="job-title">${escapeHtml(job.title)}</div>
@@ -252,10 +246,7 @@ function renderJobs() {
             <span>${Number(job.progress_percent || 0)}%</span>
           </div>
           <div class="status-line">${escapeHtml(job.status_message || job.stage || "")}</div>
-          <div class="job-footer">
-            <span class="status-line">${hint}</span>
-            <div class="compact-actions">${resumeButton}${stopButton}</div>
-          </div>
+          ${stopButton ? `<div class="compact-actions">${stopButton}</div>` : ""}
         </article>`;
     })
     .join("");
@@ -290,22 +281,30 @@ async function loadDetail() {
     </div>
   `;
   const downloadLinks = `
-    <div class="job-actions">
-      <a class="button" href="${fileLink(selectedJob, "research_progress.md")}" download>过程 MD</a>
-      ${
-        selectedJob.collaborative_planning
-          ? `<a class="button" href="${fileLink(selectedJob, "research_plan.md")}" download>计划 MD</a>`
-          : ""
-      }
-      <a class="button" href="${fileLink(selectedJob, "research_report.md")}" download>报告 MD</a>
-      ${
-        selectedJob.pdf_ready
-          ? `<a class="button" href="${fileLink(selectedJob, "research_report.pdf")}" download>报告 PDF</a>`
-          : ""
-      }
-      <a class="button" href="${fileLink(selectedJob, "research_artifacts.zip")}" download>全部 ZIP</a>
-      <button data-action="normalize" data-id="${selectedJob.id}">规范引用</button>
-      <button id="revealFolderBtn">在 Finder 中显示</button>
+    <div class="action-group">
+      <span class="action-label">下载</span>
+      <div class="job-actions">
+        <a class="button" href="${fileLink(selectedJob, "research_progress.md")}" download>过程 MD</a>
+        ${
+          selectedJob.collaborative_planning
+            ? `<a class="button" href="${fileLink(selectedJob, "research_plan.md")}" download>计划 MD</a>`
+            : ""
+        }
+        <a class="button" href="${fileLink(selectedJob, "research_report.md")}" download>报告 MD</a>
+        ${
+          selectedJob.pdf_ready
+            ? `<a class="button" href="${fileLink(selectedJob, "research_report.pdf")}" download>报告 PDF</a>`
+            : ""
+        }
+        <a class="button" href="${fileLink(selectedJob, "research_artifacts.zip")}" download>全部 ZIP</a>
+      </div>
+    </div>
+    <div class="action-group">
+      <span class="action-label">工具</span>
+      <div class="job-actions">
+        <button data-action="normalize" data-id="${selectedJob.id}">规范引用</button>
+        <button id="revealFolderBtn">在 Finder 中显示</button>
+      </div>
     </div>
   `;
   const planControls = selectedJob.local_status === "awaiting_approval"
