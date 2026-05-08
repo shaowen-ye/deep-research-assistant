@@ -4,6 +4,21 @@ let activeTab = "progress";
 let settings = null;
 
 const $ = (id) => document.getElementById(id);
+
+const MODEL_SUGGESTIONS = {
+  gemini: ["deep-research-preview-04-2026", "deep-research-max-preview-04-2026"],
+  deepseek: ["deepseek-v4-pro", "deepseek-chat-v3.1"],
+  openai: ["gpt-5.5-pro", "gpt-5.5", "gpt-5.5-mini", "gpt-5"],
+  openrouter: [
+    "anthropic/claude-sonnet-4.6",
+    "anthropic/claude-opus-4.7",
+    "openai/gpt-5.5-pro",
+    "google/gemini-3.1-flash-lite",
+    "x-ai/grok-4.3",
+    "deepseek/deepseek-v4-pro",
+  ],
+};
+
 const FONT_KEY = "deepResearchUiFontSize";
 const DEFAULT_FONT_SIZE = 15;
 const MIN_FONT_SIZE = 13;
@@ -124,7 +139,12 @@ function renderSettings() {
       </label>
       <label>
         Model / Agent
-        <input data-field="model" value="${escapeHtml(provider.model)}" />
+        <input data-field="model" list="modelSuggestions-${id}" value="${escapeHtml(provider.model)}" />
+        <datalist id="modelSuggestions-${id}">
+          ${(MODEL_SUGGESTIONS[id] || [])
+            .map((m) => `<option value="${escapeHtml(m)}"></option>`)
+            .join("")}
+        </datalist>
       </label>
       <label class="check">
         <input data-field="clear_key" type="checkbox" />
