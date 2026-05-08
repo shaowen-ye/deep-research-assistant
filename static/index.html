@@ -61,10 +61,8 @@
         <div class="row">
           <label>
             Agent / Model
-            <select id="agent">
-              <option value="deep-research-preview-04-2026">Deep Research</option>
-              <option value="deep-research-max-preview-04-2026">Deep Research Max</option>
-            </select>
+            <input id="agent" list="agentList" autocomplete="off" spellcheck="false" placeholder="model id" />
+            <datalist id="agentList"></datalist>
           </label>
           <label id="includeVisualsLabel" class="check">
             <input id="includeVisuals" type="checkbox" checked />

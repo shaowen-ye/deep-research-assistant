@@ -125,37 +125,37 @@ function renderProviderSelect() {
   updateAgentChoices();
 }
 
+let lastAgentProvider = null;
+
 function updateAgentChoices() {
   const providerId = $("provider").value;
   const provider = settings && settings.providers ? settings.providers[providerId] : null;
   const agent = $("agent");
+  const list = $("agentList");
   if (!provider) return;
   const isGemini = providerId === "gemini";
   $("collabLabel").style.display = isGemini ? "" : "none";
   if (!isGemini) $("collab").checked = false;
   $("includeVisualsText").textContent = isGemini ? "生成图表" : "用表格可视化";
 
-  if (providerId === "gemini") {
-    agent.innerHTML = `
-      <option value="deep-research-preview-04-2026">Deep Research</option>
-      <option value="deep-research-max-preview-04-2026">Deep Research Max</option>
-    `;
-  } else if (providerId === "anthropic") {
-    const opts = [
-      ["claude-opus-4-7", "Opus 4.7（推荐）"],
-      ["claude-sonnet-4-6", "Sonnet 4.6"],
-      ["claude-haiku-4-5-20251001", "Haiku 4.5"],
-    ];
-    if (provider.model && !opts.some(([v]) => v === provider.model)) {
-      opts.unshift([provider.model, provider.model]);
-    }
-    agent.innerHTML = opts
-      .map(([v, label]) => `<option value="${escapeHtml(v)}">${escapeHtml(label)}</option>`)
+  const suggestions = MODEL_SUGGESTIONS[providerId] || [];
+  const merged =
+    provider.model && !suggestions.includes(provider.model)
+      ? [provider.model, ...suggestions]
+      : suggestions.slice();
+  if (list) {
+    list.innerHTML = merged
+      .map((m) => `<option value="${escapeHtml(m)}"></option>`)
       .join("");
-    if (provider.model) agent.value = provider.model;
-  } else {
-    agent.innerHTML = `<option value="${escapeHtml(provider.model)}">${escapeHtml(provider.model)}</option>`;
   }
+
+  const providerChanged = lastAgentProvider !== providerId;
+  const currentValid = agent.value && (merged.includes(agent.value) || agent.value === provider.model);
+  if (providerChanged || !currentValid) {
+    agent.value = provider.model || merged[0] || "";
+  }
+  agent.placeholder = provider.model || merged[0] || "model id";
+  lastAgentProvider = providerId;
 }
 
 function searchBadge(provider) {

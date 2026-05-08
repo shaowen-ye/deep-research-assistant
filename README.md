@@ -26,21 +26,18 @@ OpenAI / OpenRouter（通过 Tavily 检索）完成 **联网 agentic 研究**，
 
 ## 亮点
 
-- **5 个 provider 全部联网**：
-  - **Gemini Deep Research / Max**：原生 long-running interactions，SSE
-    流式、协作规划、计划批准与修订循环；Max 提供更高搜索量与上下文，
-    适合深度尽职调查或竞争分析。
-  - **Anthropic Claude**：messages API + 原生 `web_search` 工具，无需
-    额外搜索后端；默认走 `claude-opus-4-7`。
-  - **DeepSeek / OpenAI / OpenRouter**：自带 agentic loop（OpenAI tool
-    调用 + Tavily 检索），由模型自己生成查询、读结果、决定何时收尾，
-    最终输出带数字编号引用的 Markdown 报告。
 - **本地优先**：服务器只监听 `127.0.0.1`；设置、任务状态、产物都保存
-  在 `app_data/`，默认已加入 `.gitignore`。
-- **每任务可归档**：每次运行产出 Markdown + PDF + 单个 ZIP，包含报告、
-  图表、原始 API 返回与过程日志。
-- **零构建、零外部运行时依赖**：后端用 Python 标准库 `http.server`，
-  前端用原生 HTML / CSS / JS。
+  在 `app_data/`，默认已加入 `.gitignore`，不依赖任何云端账号体系。
+- **每任务完整归档**：每次运行产出 Markdown + PDF + 单个 ZIP，包含
+  报告、图表、原始 API 返回与逐步过程日志，便于复核或二次解析。
+- **统一的 agentic 任务面板**：Gemini Deep Research / Anthropic Claude /
+  DeepSeek / OpenAI / OpenRouter 共用同一个三栏界面；Gemini 还支持
+  「协作规划」——先生成研究计划，由你批准或迭代修订后再执行。
+- **`规范引用` 一键整理**：扫描报告里的 `## 参考文献` / `## References`
+  章节，回抓每条来源的标题、站点、年份与最终跳转链接，再以 `标题 +
+  URL + 访问日期` 重写并重新生成 PDF；原文备份为 `.original.md`。
+- **零构建、零外部运行时依赖**：后端只用 Python 标准库 `http.server`，
+  前端纯原生 HTML / CSS / JS。
 
 ## 快速开始
 
@@ -351,21 +348,20 @@ include inline figures and clickable numbered citations.
 
 ### Highlights
 
-- **All five providers actually search the web**:
-  - **Gemini Deep Research / Max** — native long-running interactions,
-    SSE streaming, collaborative planning, plan approval/refinement loop;
-    Max ships higher query volume and context, suited to deep due
-    diligence and competitive analysis.
-  - **Anthropic Claude** — messages API + native `web_search` tool, no
-    extra search backend; defaults to `claude-opus-4-7`.
-  - **DeepSeek / OpenAI / OpenRouter** — agentic loop (OpenAI tool calls
-    + Tavily search): the model writes its own queries, reads snippets,
-    decides when to stop, and emits a Markdown report with numbered
-    inline citations.
 - **Local-first** — server binds to `127.0.0.1`; settings, job state, and
-  generated artifacts live under `app_data/` and are gitignored by default.
-- **Per-job archive** — every run produces Markdown + PDF + a single ZIP
-  containing reports, figures, raw API responses, and progress logs.
+  generated artifacts live under `app_data/` and are gitignored by default;
+  no cloud account, no telemetry.
+- **Full per-job archive** — every run produces Markdown + PDF + a single
+  ZIP with the report, figures, raw API responses, and step-by-step
+  progress logs, so each job is fully auditable and re-parsable.
+- **One agentic panel for every supported provider** — Gemini Deep
+  Research, Anthropic Claude, DeepSeek, OpenAI, and OpenRouter all share
+  the same three-pane UI; Gemini additionally exposes a
+  **plan → approve → execute** loop (协作规划) for human-in-the-loop runs.
+- **One-click `规范引用`** — scans the report's `## 参考文献` /
+  `## References` section, refetches each source's title, site, year, and
+  final URL, and rewrites the section as `title + URL + access date`,
+  then regenerates the PDF. The original is preserved as `.original.md`.
 - **No build step, no external runtime deps** — Python stdlib backend
   (`http.server`), vanilla HTML/CSS/JS frontend.
 
