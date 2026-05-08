@@ -1,241 +1,209 @@
 # Gemini Deep Research Local App
 
-## 中文说明
+[![Python](https://img.shields.io/badge/python-3.8%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Stdlib only](https://img.shields.io/badge/runtime-stdlib%20only-informational)](#architecture)
 
-这是一个本地 Web GUI app，用于创建、管理和导出 AI 研究报告。它支持 Gemini Deep Research，也支持 DeepSeek、OpenAI、OpenRouter 等 OpenAI-compatible Chat Completions 接口。
+A local Python web GUI for running and archiving deep-research jobs against
+[Gemini Deep Research][gdr] and OpenAI-compatible providers
+(DeepSeek, OpenAI, OpenRouter). Jobs, settings, and outputs stay on your
+machine.
 
-### 主要功能
-
-- 在浏览器 GUI 中创建、恢复、停止和查看研究任务。
-- 支持 Gemini Deep Research 的后台长任务、协作规划、流式进度和最终报告。
-- 支持 DeepSeek、OpenAI、OpenRouter 等普通报告生成模式。
-- 在 GUI 弹窗中配置 API key、Base URL 和模型名。
-- 支持任务阶段、进度条、百分比和状态提示。
-- 支持导出 Markdown、PDF 和包含全部文件的 ZIP。
-- 支持报告正文数字编号引用，编号可点击打开网页来源。
-- 正文文献编号链接显示为蓝色加下划线，方便识别和点击。
-- 参考文献清单保持简洁，每条保留标题或来源名、网页链接和访问时间。
-- 支持报告中的图、表插入到正文相关位置。
-- 支持字体大小调整：`A- / 100% / A+`，以及 `Cmd +`、`Cmd -`、`Cmd 0`。
-
-### 启动
-
-终端方式：
-
-```bash
-./run_app.sh
-```
-
-浏览器打开：
-
-```text
-http://127.0.0.1:8765
-```
-
-macOS 双击方式：
-
-```text
-Gemini Deep Research.command
-```
-
-### 配置 API
-
-可以在 GUI 右上角的 `API 设置` 弹窗中配置 API key、Base URL 和模型名。设置只保存在本地：
-
-```text
-app_data/settings.json
-```
-
-`app_data/` 已加入 `.gitignore`，不会提交到 GitHub。
-
-也可以使用 shell 环境变量：
-
-```bash
-export GEMINI_API_KEY="your-gemini-api-key"
-export DEEPSEEK_API_KEY="your-deepseek-api-key"
-export OPENAI_API_KEY="your-openai-api-key"
-export OPENROUTER_API_KEY="your-openrouter-api-key"
-```
-
-GUI 中保存的 key 优先级高于环境变量。
-
-### Provider
-
-```text
-Gemini Deep Research: 完整 Deep Research Agent，支持后台长任务、协作规划、图表和最终报告。
-DeepSeek: OpenAI-compatible Chat Completions，用于低成本报告生成/整理，默认模型为 deepseek-v4-pro。
-OpenAI: OpenAI Chat Completions，用于普通报告生成/整理。
-OpenRouter: OpenAI-compatible 聚合接口，用于接入多种模型。
-```
-
-注意：DeepSeek/OpenAI/OpenRouter 当前是通用报告生成模式，不是 Google 的 Deep Research Agent。它们不会自动拥有 Gemini Deep Research 的专用搜索和后台 Agent 能力，除非后续再给 app 加搜索抓取流水线。
-
-### 输出文件
-
-每个任务保存到：
-
-```text
-app_data/jobs/
-```
-
-任务目录里通常包含：
-
-```text
-state.json
-research_progress.md
-research_plan.md
-research_report.md
-research_report.pdf
-images/
-interaction_final.json
-```
-
-报告完成后，任务详情里会提供：
-
-```text
-下载过程 MD
-下载计划 MD
-下载报告 MD
-下载报告 PDF
-下载全部 ZIP
-在 Finder 中显示
-```
-
-`下载全部 ZIP` 会把 Markdown、PDF、图片、过程记录和原始 API 返回一起打包。
-
-### PDF 导出
-
-PDF 导出依赖系统命令：
-
-```text
-pandoc
-xelatex
-```
-
-如果缺少这些工具，报告仍会生成 Markdown，PDF 会跳过。
-
-### 本地范围
-
-- `app_data/`、`.venv/`、生成的报告与原始 API 返回都已在 `.gitignore` 内，留在本机。
-- 默认只监听 `127.0.0.1`，没有鉴权层，适合个人本机使用；若改成对外监听，请自行加鉴权。
+> [简体中文说明](#中文说明) is at the bottom of this file.
 
 ---
 
-## English
+## Highlights
 
-This is a local Web GUI app for creating, managing, and exporting AI research reports. It supports Gemini Deep Research, as well as OpenAI-compatible Chat Completions providers such as DeepSeek, OpenAI, and OpenRouter.
+- **Gemini Deep Research, end to end** — long-running interactions, SSE
+  streaming, collaborative planning, citations, inline figures, plan
+  approval/refinement loop.
+- **Three OpenAI-compatible fallbacks** — DeepSeek, OpenAI, OpenRouter via
+  Chat Completions, useful for cheaper drafts and offline-friendly post-edit.
+- **Local-first** — server binds to `127.0.0.1`; settings, job state, and
+  generated artifacts live under `app_data/` and are gitignored by default.
+- **Per-job archive** — every run produces Markdown + PDF + a single ZIP
+  containing reports, figures, raw API responses, and progress logs.
+- **No build step, no external runtime deps** — Python stdlib backend
+  (`http.server`), vanilla HTML/CSS/JS frontend.
 
-### Features
+## Quickstart
 
-- Create, resume, stop, and inspect research jobs from a browser GUI.
-- Supports Gemini Deep Research background jobs, collaborative planning, streaming progress, and final reports.
-- Supports DeepSeek, OpenAI, and OpenRouter for general report generation.
-- Configure API keys, Base URLs, and model names in a GUI settings modal.
-- Shows job stages, progress bars, percentages, and status messages.
-- Exports Markdown, PDF, and a ZIP archive with all job artifacts.
-- Uses numeric citations in report body text, with clickable source links.
-- Citation numbers are shown as blue underlined links in the GUI.
-- Keeps the reference list concise: title or source name, URL, and access date.
-- Places figures and tables near the relevant body text instead of collecting them at the end.
-- Supports font scaling via `A- / 100% / A+`, `Cmd +`, `Cmd -`, and `Cmd 0`.
-
-### Start
-
-From terminal:
-
-```bash
-./run_app.sh
-```
-
-Then open:
-
-```text
-http://127.0.0.1:8765
-```
-
-On macOS, you can also double-click:
-
-```text
-Gemini Deep Research.command
-```
-
-### API Configuration
-
-Use the `API 设置` settings modal in the upper-right corner to configure API keys, Base URLs, and model names. Settings are stored locally:
-
-```text
-app_data/settings.json
-```
-
-`app_data/` is ignored by Git and should not be pushed to GitHub.
-
-You can also use shell environment variables:
+Requires **Python ≥ 3.8** on macOS or Linux. PDF export additionally needs
+[`pandoc`](https://pandoc.org) and an XeLaTeX engine
+(e.g. [TeX Live](https://tug.org/texlive/) or
+[MacTeX](https://www.tug.org/mactex/)). Markdown still works without them.
 
 ```bash
-export GEMINI_API_KEY="your-gemini-api-key"
-export DEEPSEEK_API_KEY="your-deepseek-api-key"
-export OPENAI_API_KEY="your-openai-api-key"
-export OPENROUTER_API_KEY="your-openrouter-api-key"
+git clone https://github.com/shaowen-ye/gemini-deep-research-local-app.git
+cd gemini-deep-research-local-app
+./run_app.sh                    # or: python3 app.py
 ```
 
-Keys saved in the GUI take priority over environment variables.
+Open <http://127.0.0.1:8765>, click **API 设置**, and add at least one
+provider key. On macOS you can also double-click
+`Gemini Deep Research.command`.
+
+A custom host/port:
+
+```bash
+python3 app.py --host 127.0.0.1 --port 8765
+```
+
+## Configuration
+
+Provider keys can be configured either in the GUI (stored in
+`app_data/settings.json`) or via environment variables. The GUI value wins
+when both are set.
+
+```bash
+export GEMINI_API_KEY="..."
+export DEEPSEEK_API_KEY="..."
+export OPENAI_API_KEY="..."
+export OPENROUTER_API_KEY="..."
+```
+
+`app_data/` is in `.gitignore`, so neither keys nor job outputs are pushed.
 
 ### Providers
 
-```text
-Gemini Deep Research: full Deep Research Agent with background jobs, collaborative planning, figures, and final reports.
-DeepSeek: OpenAI-compatible Chat Completions for lower-cost report generation, default model deepseek-v4-pro.
-OpenAI: OpenAI Chat Completions for general report generation.
-OpenRouter: OpenAI-compatible aggregation endpoint for multiple models.
+| Provider | Mode | Default model | Notes |
+| --- | --- | --- | --- |
+| **Gemini Deep Research** | [Interactions API][gdr] | `deep-research-preview-04-2026` | Full Deep Research Agent: collaborative planning, web search, figures, SSE streaming. |
+| DeepSeek | OpenAI-compatible Chat Completions | `deepseek-v4-pro` | Low-cost single-shot report generation. |
+| OpenAI | Chat Completions | `gpt-4.1` | Single-shot report generation. |
+| OpenRouter | OpenAI-compatible aggregator | `deepseek/deepseek-chat` | Access many models via one endpoint. |
+
+Only the Gemini path runs an actual research agent. DeepSeek / OpenAI /
+OpenRouter make a single Chat Completions call against the topic — they do
+not search the web on their own.
+
+## Output
+
+Each job is saved to `app_data/jobs/<slug>-<id>/`:
+
+```
+state.json                  serialized job state
+research_progress.md        streamed thoughts, tool calls, citations
+research_plan.md            collaborative-planning mode only
+research_report.md          final markdown with inline figures
+research_report.pdf         if pandoc + xelatex are available
+images/                     figures referenced from the report
+interaction_final.json      raw final response from the API
 ```
 
-Note: DeepSeek, OpenAI, and OpenRouter currently run in general report generation mode. They do not automatically provide Gemini Deep Research's dedicated search and background-agent capabilities unless a separate search pipeline is added later.
+The detail pane offers Markdown / PDF / ZIP downloads, a **规范引用**
+button to renumber citations, and **在 Finder 中显示** to open the folder.
+The ZIP packages everything above for archival or sharing.
 
-### Output Files
+## Architecture
 
-Each job is saved under:
+The backend is a stdlib `ThreadingHTTPServer`. No web framework, no build
+step. Logic is split across `core/`:
 
-```text
-app_data/jobs/
+| Module | Role |
+| --- | --- |
+| `app.py` | CLI entrypoint. Wires `core.config` and `core.server`. |
+| `core/server.py` | HTTP routing for jobs, settings, static files, SSE. |
+| `core/config.py` | Data dirs, provider defaults, settings load/save, secret masking. |
+| `core/state.py` | Per-job state on disk + in-memory locks. |
+| `core/worker.py` | Job lifecycle, threading, plan approval flow. |
+| `core/gemini.py` | Deep Research Interactions API + SSE event loop. |
+| `core/chat.py` | OpenAI-compatible Chat Completions for DeepSeek/OpenAI/OpenRouter. |
+| `core/citations.py` | Source metadata fetch, numbered references. |
+| `core/exporters.py` | Markdown → PDF via pandoc, ZIP packaging. |
+| `core/http_client.py` | Minimal stdlib `urllib` JSON wrapper. |
+| `core/common.py` | `utc_now`, `slugify`, JSON file helpers. |
+
+Imports form a DAG:
+`common → config → state, http_client → citations, exporters → gemini, chat → worker → server`.
+
+The frontend is `static/index.html` + `static/app.js` + `static/styles.css`.
+Vanilla JS, no bundler.
+
+## Contributing
+
+Issues and pull requests are welcome.
+
+- Keep dependencies minimal: backend should remain stdlib-only; frontend
+  should remain build-less.
+- Don't introduce cycles in the `core/` import DAG above.
+- Never commit anything from `app_data/`. API keys live in
+  `app_data/settings.json` and are gitignored.
+- For UI/UX changes, please attach a short before/after screenshot in the
+  PR description.
+- Match the existing code style; there is no enforced linter.
+
+Bug reports should ideally include: Python version, provider, an
+abbreviated `state.json`, and the relevant lines from
+`research_progress.md`.
+
+## Acknowledgements
+
+This project was developed with the assistance of AI coding agents:
+
+- **OpenAI Codex** — initial scaffolding of the GUI, backend, and
+  Gemini Deep Research integration.
+- **Anthropic Claude Code** — subsequent module refactor (`app.py` →
+  `core/`), GUI polish, and documentation.
+
+All code has been reviewed and is maintained by [@shaowen-ye](https://github.com/shaowen-ye).
+
+## License
+
+MIT — see [LICENSE](LICENSE).
+
+[gdr]: https://ai.google.dev/gemini-api/docs/interactions/deep-research
+
+---
+
+## 中文说明
+
+一个本地 Python Web GUI，用来调用 [Gemini Deep Research][gdr] 与 OpenAI
+兼容的 Chat Completions（DeepSeek / OpenAI / OpenRouter）完成研究任务，
+并把过程、报告、图表、原始 API 返回归档到本机。默认只监听
+`127.0.0.1`，无外部运行时依赖。
+
+### 快速开始
+
+需要 **Python ≥ 3.8**；PDF 导出额外依赖 `pandoc` 与 `xelatex`，缺失时
+仍可生成 Markdown。
+
+```bash
+git clone https://github.com/shaowen-ye/gemini-deep-research-local-app.git
+cd gemini-deep-research-local-app
+./run_app.sh                    # 或者：python3 app.py
 ```
 
-A job folder usually contains:
+浏览器打开 <http://127.0.0.1:8765>，在 **API 设置** 中填入任一 provider
+的 key。macOS 也可以双击 `Gemini Deep Research.command`。
 
-```text
-state.json
-research_progress.md
-research_plan.md
-research_report.md
-research_report.pdf
-images/
-interaction_final.json
-```
+### Provider
 
-After a report completes, the job detail panel provides:
+- **Gemini Deep Research**：完整 Deep Research Agent，支持后台长任务、
+  协作规划、流式进度、图表与最终报告。
+- **DeepSeek / OpenAI / OpenRouter**：OpenAI 兼容 Chat Completions，
+  适合低成本生成或后期整理；它们不会主动联网搜索。
 
-```text
-Download progress Markdown
-Download plan Markdown
-Download report Markdown
-Download report PDF
-Download all as ZIP
-Show in Finder
-```
+### 输出
 
-The ZIP export includes Markdown, PDF, images, progress logs, and raw API responses for that job.
+每次任务的 Markdown / PDF / 图表 / 原始 API 返回都保存在
+`app_data/jobs/<slug-id>/`，详情面板提供 Markdown / PDF / ZIP 下载和
+"在 Finder 中显示"。`app_data/` 已在 `.gitignore` 内，API key 与产物
+不会进入仓库。
 
-### PDF Export
+### 贡献
 
-PDF export depends on these system commands:
+欢迎 Issue 与 PR。请保持后端 stdlib-only、前端无构建工具，UI 改动请
+在 PR 中附 before/after 截图，不要把 `app_data/` 内任何文件提交进来。
+更详细的架构说明见上方 [Architecture](#architecture)。
 
-```text
-pandoc
-xelatex
-```
+### 致谢
 
-If they are missing, Markdown reports still work, and PDF generation is skipped.
+本仓库代码由 AI 编程助手协作生成：初始版本由 OpenAI Codex 协助搭建，
+后续 `core/` 模块拆分与 GUI 优化由 Anthropic Claude Code 协助完成；
+所有代码经过 [@shaowen-ye](https://github.com/shaowen-ye) 审阅与维护。
 
-### Local Scope
+### 许可
 
-- `app_data/`, `.venv/`, generated reports, and raw API responses are all in `.gitignore` and stay on the local machine.
-- The server listens on `127.0.0.1` by default and has no authentication layer; add one if you bind to a non-loopback interface.
+MIT，见 [LICENSE](LICENSE)。
