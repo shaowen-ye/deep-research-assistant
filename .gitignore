@@ -13,10 +13,14 @@ __pycache__/
 .DS_Store
 .vscode/
 .idea/
+.claude/
 
 # Browser/test artifacts
 .playwright-cli/
 .playwright-mcp/
+
+# Dev-only UI screenshots from local Playwright sessions
+/ui-*.png
 
 # Generated research outputs
 output/

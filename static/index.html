@@ -3,14 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Gemini Deep Research</title>
+    <title>深度研究助手</title>
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
     <header class="topbar">
       <div>
-        <h1>Gemini Deep Research</h1>
-        <p>本地任务管理与归档</p>
+        <h1>深度研究助手 Deep Research Assistant</h1>
+        <p>Gemini Deep Research Agent · 多模型支持 · 计划-执行-精修</p>
       </div>
       <div class="top-actions">
         <div class="font-controls" aria-label="字体大小">
@@ -27,7 +27,6 @@
       <section class="panel composer">
         <div class="panel-title">
           <h2>新建研究</h2>
-          <button id="refreshBtn" class="icon-btn" title="刷新任务">↻</button>
         </div>
         <label>
           研究引擎
@@ -39,12 +38,12 @@
         </label>
         <label>
           研究要求
-          <textarea id="topic" spellcheck="false">请系统综述 2015 年以来内陆水体增殖放流（stock enhancement）的生态效应与管理策略。
+          <textarea id="topic" spellcheck="false">请系统综述内陆水体增殖放流（stock enhancement）的生态效应与管理策略。
 
 研究范围
 - 时间窗：以近 50 年同行评审文献为主，必要时可纳入更早的奠基性工作以梳理脉络。
 - 区域：中国主要流域（长江、珠江、东南沿海水库）以及国际典型案例（北美鲑鳟、北欧鳗鲡放流计划）。
-- 物种：青鱼、草鱼、鲢鱼、鳙鱼、鲤鱼等经济鱼类，以及具有保护意义的本地物种。
+- 物种：青鱼、草鱼、鲢、鳙、鲤等经济鱼类，以及具有保护意义的本地物种。
 
 核心问题
 1. 放流对受体水体种群密度、年龄结构和生长速率的短期与长期影响。
@@ -58,44 +57,63 @@
 - 至少 2 张图表，例如不同放流策略下的种群响应对比图、典型遗传多样性指标（He、Fst）汇总表。
 - 引用偏好：同行评审英文期刊（如 Fisheries Research、Journal of Fish Biology、ICES Journal of Marine Science）与中文核心期刊；区分一手研究与综述，灰色文献仅在必要时引用。</textarea>
         </label>
-        <div class="row">
-          <label>
-            Agent / Model
-            <input id="agent" list="agentList" autocomplete="off" spellcheck="false" placeholder="model id" />
-            <datalist id="agentList"></datalist>
-          </label>
+        <label>
+          Agent / Model
+          <input id="agent" list="agentList" autocomplete="off" spellcheck="false" placeholder="model id" />
+          <datalist id="agentList"></datalist>
+        </label>
+        <div class="check-row">
           <label id="includeVisualsLabel" class="check">
             <input id="includeVisuals" type="checkbox" checked />
             <span id="includeVisualsText">生成图表</span>
           </label>
+          <label id="collabLabel" class="check">
+            <input id="collab" type="checkbox" />
+            协作规划模式
+          </label>
         </div>
-        <label id="collabLabel" class="check">
-          <input id="collab" type="checkbox" />
-          协作规划模式
-        </label>
         <button id="createBtn" class="primary">启动研究</button>
         <p class="note">协作规划会先生成研究计划；你可以批准执行，也可以输入修改意见生成新版计划。</p>
       </section>
 
+      <div class="col-resizer" data-resizer="1" title="拖动调整列宽"></div>
+
       <section class="panel jobs">
         <div class="panel-title">
           <h2>研究任务</h2>
-          <span id="jobCount"></span>
+          <div class="panel-title-actions">
+            <span id="jobCount"></span>
+            <button id="refreshBtn" class="icon-btn" title="刷新任务">↻</button>
+          </div>
         </div>
         <div id="jobsList" class="jobs-list"></div>
       </section>
+
+      <div class="col-resizer" data-resizer="2" title="拖动调整列宽"></div>
 
       <section class="panel detail">
         <div class="panel-title">
           <h2 id="detailTitle">任务详情</h2>
           <div class="tabs">
-            <button class="tab active" data-tab="progress">过程</button>
             <button class="tab" data-tab="plan">计划</button>
+            <button class="tab active" data-tab="progress">过程</button>
             <button class="tab" data-tab="report">报告</button>
+            <button class="tab" data-tab="edit">编辑</button>
           </div>
         </div>
         <div id="actions" class="actions"></div>
-        <div id="content" class="content">选择一个任务查看内容。</div>
+        <div id="content" class="content">
+          <div class="content-empty">
+            <div class="content-empty-title">选择左侧任意任务查看详情</div>
+            <ul class="content-empty-tips">
+              <li><strong>计划</strong>：协作规划模式下生成的研究计划全文</li>
+              <li><strong>过程</strong>：模型思考、工具调用、检索源与生成图表的实时记录</li>
+              <li><strong>报告</strong>：最终 Markdown 报告（含图表与编号引用）</li>
+              <li><strong>编辑</strong>：用自然语言指挥 AI 多轮 find/replace 精修，支持版本回滚</li>
+            </ul>
+            <div class="content-empty-hint">还没有任务？在最左侧"新建研究"中填写要求并启动。</div>
+          </div>
+        </div>
       </section>
     </main>
 

@@ -22,8 +22,8 @@ const MODEL_SUGGESTIONS = {
 
 const FONT_KEY = "deepResearchUiFontSize";
 const DEFAULT_FONT_SIZE = 15;
-const MIN_FONT_SIZE = 13;
-const MAX_FONT_SIZE = 20;
+const MIN_FONT_SIZE = 7.5;
+const MAX_FONT_SIZE = 22.5;
 
 function applyFontSize(size) {
   const next = Math.max(MIN_FONT_SIZE, Math.min(MAX_FONT_SIZE, Number(size) || DEFAULT_FONT_SIZE));
@@ -263,7 +263,9 @@ async function loadJobs() {
     const latest = jobs.find((job) => job.id === selectedJob.id);
     if (latest) {
       selectedJob = latest;
-      await loadDetail();
+      if (activeTab !== "edit") {
+        await loadDetail();
+      }
     }
   }
 }
@@ -289,8 +291,79 @@ async function handleJobAction(id, action) {
     return;
   }
 
+  if (action === "normalize") {
+    await runNormalizeCitations(id);
+    return;
+  }
+
   await api(`/api/jobs/${encodeURIComponent(id)}/${action}`, { method: "POST" });
   await loadJobs();
+}
+
+async function runNormalizeCitations(id) {
+  const ok = confirm(
+    "将扫描报告中的 ## 参考文献 / ## References 章节，回抓每条来源的标题、站点、年份与最终跳转链接，" +
+      "并按「标题 + URL + 访问日期」重写后重新生成 PDF。\n\n" +
+      "首次执行会把当前 research_report.md 备份为 research_report.original.md。\n\n要继续吗？",
+  );
+  if (!ok) return;
+
+  const button = document.querySelector(`button[data-action="normalize"][data-id="${id}"]`);
+  const originalLabel = button ? button.textContent : "";
+  if (button) {
+    button.disabled = true;
+    button.textContent = "抓取中…";
+  }
+  showNormalizeBanner({ pending: true });
+
+  let result;
+  try {
+    result = await api(`/api/jobs/${encodeURIComponent(id)}/normalize`, { method: "POST" });
+  } catch (error) {
+    showNormalizeBanner({ error: error.message });
+    if (button) {
+      button.disabled = false;
+      button.textContent = originalLabel || "规范引用";
+    }
+    return;
+  }
+
+  await loadJobs();
+  showNormalizeBanner(result);
+}
+
+function showNormalizeBanner(result) {
+  const target = document.getElementById("actions");
+  if (!target) return;
+  target.querySelectorAll(".normalize-banner").forEach((node) => node.remove());
+
+  const banner = document.createElement("div");
+  banner.className = "normalize-banner";
+
+  if (result.pending) {
+    banner.classList.add("muted");
+    banner.textContent = "正在回抓来源元数据…首次执行可能需要十几秒到一分钟。";
+  } else if (result.error) {
+    banner.classList.add("warn");
+    banner.textContent = `规范引用失败：${result.error}`;
+  } else if (result.changed) {
+    const pdfNote = result.pdf_ready ? "PDF 已重新生成" : "PDF 重新生成失败（检查 Pandoc / XeLaTeX）";
+    banner.classList.add(result.pdf_ready ? "ok" : "warn");
+    banner.innerHTML =
+      `<strong>已规范 ${result.source_count || 0} 条引用</strong>` +
+      `<span> · ${escapeHtml(pdfNote)} · 原文备份已写入 <code>research_report.original.md</code></span>`;
+  } else {
+    banner.classList.add("muted");
+    banner.textContent = `未做修改：${describeNormalizeReason(result.reason)}`;
+  }
+  target.appendChild(banner);
+}
+
+function describeNormalizeReason(reason) {
+  if (reason === "report not found") return "尚未生成报告";
+  if (reason === "sources not found") return "报告中未发现 ## 参考文献 / ## References 章节";
+  if (reason === "no citation changes") return "引用已是规范格式，无需变更";
+  return reason || "未知原因";
 }
 
 function attachJobActionControls(root = document) {
@@ -324,7 +397,7 @@ function renderJobs() {
           <div class="meta">
             <span class="badge">${escapeHtml(job.provider_label || job.provider || "provider")}</span>
             ${badge(job.local_status)}
-            ${job.remote_status ? badge(job.remote_status) : ""}
+            ${job.remote_status && job.remote_status !== job.local_status ? badge(job.remote_status) : ""}
             <span class="badge">${job.image_count || 0} 图</span>
           </div>
           <div class="progress-row">
@@ -333,7 +406,11 @@ function renderJobs() {
             </div>
             <span>${Number(job.progress_percent || 0)}%</span>
           </div>
-          <div class="status-line">${escapeHtml(job.status_message || job.stage || "")}</div>
+          ${
+            job.local_status !== "completed" && (job.status_message || job.stage)
+              ? `<div class="status-line">${escapeHtml(job.status_message || job.stage)}</div>`
+              : ""
+          }
           ${stopButton ? `<div class="compact-actions">${stopButton}</div>` : ""}
         </article>`;
     })
@@ -355,7 +432,18 @@ async function loadDetail() {
   if (!selectedJob) {
     $("detailTitle").textContent = "任务详情";
     $("actions").innerHTML = "";
-    $("content").textContent = "选择一个任务查看内容。";
+    $("content").innerHTML = `
+      <div class="content-empty">
+        <div class="content-empty-title">选择左侧任意任务查看详情</div>
+        <ul class="content-empty-tips">
+          <li><strong>过程</strong>：查看模型思考、工具调用、检索源与生成图表的实时记录</li>
+          <li><strong>计划</strong>：协作规划模式下生成的研究计划全文</li>
+          <li><strong>报告</strong>：最终 Markdown 报告（含图表与编号引用）</li>
+          <li><strong>编辑</strong>：用自然语言指挥 AI 进行多轮 find/replace 精修，支持版本回滚</li>
+        </ul>
+        <div class="content-empty-hint">还没有任务？在最左侧"新建研究"中填写要求并启动。</div>
+      </div>
+    `;
     return;
   }
 
@@ -369,30 +457,28 @@ async function loadDetail() {
     </div>
   `;
   const downloadLinks = `
-    <div class="action-group">
-      <span class="action-label">下载</span>
-      <div class="job-actions">
-        <a class="button" href="${fileLink(selectedJob, "research_progress.md")}" download>过程 MD</a>
-        ${
-          selectedJob.collaborative_planning
-            ? `<a class="button" href="${fileLink(selectedJob, "research_plan.md")}" download>计划 MD</a>`
-            : ""
-        }
-        <a class="button" href="${fileLink(selectedJob, "research_report.md")}" download>报告 MD</a>
-        ${
-          selectedJob.pdf_ready
-            ? `<a class="button" href="${fileLink(selectedJob, "research_report.pdf")}" download>报告 PDF</a>`
-            : ""
-        }
-        <a class="button" href="${fileLink(selectedJob, "research_artifacts.zip")}" download>全部 ZIP</a>
-      </div>
-    </div>
-    <div class="action-group">
-      <span class="action-label">工具</span>
-      <div class="job-actions">
-        <button data-action="normalize" data-id="${selectedJob.id}">规范引用</button>
-        <button id="revealFolderBtn">在 Finder 中显示</button>
-      </div>
+    <div class="job-actions">
+      <a class="button" href="${fileLink(selectedJob, "research_progress.md")}" download>过程 MD</a>
+      ${
+        selectedJob.collaborative_planning
+          ? `<a class="button" href="${fileLink(selectedJob, "research_plan.md")}" download>计划 MD</a>`
+          : ""
+      }
+      <a class="button" href="${fileLink(selectedJob, "research_report.md")}" download>报告 MD</a>
+      ${
+        selectedJob.pdf_ready
+          ? `<a class="button" href="${fileLink(selectedJob, "research_report.pdf")}" download>报告 PDF</a>`
+          : ""
+      }
+      <a class="button" href="${fileLink(selectedJob, "research_artifacts.zip")}" download>全部 ZIP</a>
+      ${
+        selectedJob.citation_normalized
+          ? `<a class="button" href="${fileLink(selectedJob, "research_report.original.md")}" download title="规范引用前的报告原始 Markdown">原文备份</a>`
+          : ""
+      }
+      <span class="action-sep" aria-hidden="true"></span>
+      <button data-action="normalize" data-id="${selectedJob.id}" title="扫描 ## 参考文献 章节，回抓每条来源的标题/站点/年份/最终跳转链接，按「标题 + URL + 访问日期」重写并重新生成 PDF；原文备份为 research_report.original.md">规范引用</button>
+      <button id="revealFolderBtn" title="在 Finder 中显示">打开目录</button>
     </div>
   `;
   const planControls = selectedJob.local_status === "awaiting_approval"
@@ -437,6 +523,11 @@ async function loadDetail() {
   attachArtifactControls();
   attachJobActionControls($("actions"));
 
+  if (activeTab === "edit") {
+    await renderEditor();
+    return;
+  }
+
   const endpoint = activeTab;
   const text = await api(`/api/jobs/${encodeURIComponent(selectedJob.id)}/${endpoint}`);
   if (activeTab === "progress") {
@@ -452,6 +543,389 @@ async function loadDetail() {
     $("content").innerHTML = text
       ? renderMarkdown(text, selectedJob)
       : "最终研究报告尚未生成。请等待进度到 100%，完成后会生成 Markdown、PDF 和图片文件。";
+  }
+}
+
+let editorBusy = false;
+const editorDraft = { provider: "", model: "", message: "" };
+
+async function renderEditor() {
+  const content = $("content");
+  content.classList.remove("pre");
+  if (!selectedJob || (selectedJob.report_bytes || 0) === 0) {
+    content.innerHTML = "报告尚未生成，无法进入编辑模式。";
+    return;
+  }
+  content.innerHTML = `<div class="editor-loading status-line">载入编辑会话…</div>`;
+  let state;
+  try {
+    state = await api(`/api/jobs/${encodeURIComponent(selectedJob.id)}/edit`);
+  } catch (error) {
+    content.innerHTML = `<div class="status-line">载入失败：${escapeHtml(error.message)}</div>`;
+    return;
+  }
+  drawEditor(state);
+}
+
+function drawEditor(state) {
+  const content = $("content");
+  const session = state.session || { history: [] };
+  const versions = state.versions || [];
+  const reportLength = (state.report || "").length;
+  const providers = settings && settings.providers ? Object.keys(settings.providers) : [];
+  if (!editorDraft.provider) {
+    editorDraft.provider = (selectedJob && selectedJob.provider) || $("provider").value || providers[0] || "";
+  }
+  if (!editorDraft.model) {
+    const cfg = settings && settings.providers ? settings.providers[editorDraft.provider] : null;
+    editorDraft.model = (cfg && cfg.model) || "";
+  }
+
+  const providerOpts = providers
+    .map((p) => {
+      const label = settings.providers[p].label || p;
+      return `<option value="${escapeHtml(p)}" ${p === editorDraft.provider ? "selected" : ""}>${escapeHtml(label)}</option>`;
+    })
+    .join("");
+
+  const versionRows = versions
+    .slice()
+    .reverse()
+    .map((v, idx) => {
+      const isCurrent = idx === 0;
+      const restoreBtn = isCurrent
+        ? ""
+        : `<button class="editor-rollback" data-version="${escapeHtml(v.version)}">回滚到此版本</button>`;
+      const tag = isCurrent ? `<span class="badge completed">当前</span>` : "";
+      return `
+        <li>
+          <div class="editor-version-head">
+            <strong>${escapeHtml(v.version)}</strong>
+            <span class="status-line">${escapeHtml(v.timestamp || "")}</span>
+            ${tag}
+          </div>
+          <div class="editor-version-body">${escapeHtml(v.summary || "")}</div>
+          <div class="editor-version-actions">
+            <a class="button" href="/api/jobs/${encodeURIComponent(selectedJob.id)}/edit/version/${encodeURIComponent(v.version)}" target="_blank" rel="noopener">查看 MD</a>
+            ${restoreBtn}
+          </div>
+        </li>
+      `;
+    })
+    .join("");
+
+  const chatRows = (session.history || [])
+    .map((turn) => renderEditorTurn(turn))
+    .join("");
+
+  content.innerHTML = `
+    <div class="editor-shell">
+      <div class="editor-toolbar">
+        <label class="editor-field">
+          <span>使用模型</span>
+          <select id="editorProvider">${providerOpts}</select>
+        </label>
+        <label class="editor-field">
+          <span>Model</span>
+          <input id="editorModel" value="${escapeHtml(editorDraft.model || "")}" placeholder="可选，留空使用默认" />
+        </label>
+        <button id="editorReset" class="editor-secondary" title="清空对话历史（不影响版本）">清空对话</button>
+        <span class="status-line">报告 ${formatBytes(reportLength * 1)}</span>
+      </div>
+      <div class="editor-main">
+        <div id="editorChat" class="editor-chat">${chatRows || '<div class="status-line editor-empty">还没有对话。说出你想改的内容，例如 "把摘要里的时间窗写得更具体" 或 "图表 3 的数据可信度怎么样？"</div>'}</div>
+        <div class="editor-resizer editor-resizer-x" data-editor-resizer="x" title="拖动调整版本栏宽度"></div>
+        <div class="editor-versions">
+          <div class="editor-section-title">版本时间线</div>
+          <ul class="editor-version-list">${versionRows}</ul>
+        </div>
+      </div>
+      <div class="editor-resizer editor-resizer-y" data-editor-resizer="y" title="拖动调整输入区高度"></div>
+      <form id="editorForm" class="editor-input">
+        <textarea id="editorMessage" placeholder="告诉模型你想怎么改：可以是具体到一句话的修改，也可以是结构性建议。" rows="3">${escapeHtml(editorDraft.message || "")}</textarea>
+        <div class="editor-input-row">
+          <span class="status-line">补丁可以多轮叠加；每条补丁都需要你点一下「应用」才会写入报告。</span>
+          <button id="editorSend" class="primary small" type="submit" ${editorBusy ? "disabled" : ""}>${editorBusy ? "对话中…" : "发送"}</button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  attachEditorHandlers();
+  const chatEl = document.getElementById("editorChat");
+  if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+function renderEditorTurn(turn) {
+  if (turn.role === "user") {
+    return `
+      <div class="editor-turn user">
+        <div class="editor-turn-head">你</div>
+        <div class="editor-turn-body">${escapeHtml(turn.content || "")}</div>
+      </div>
+    `;
+  }
+  const provider = turn.provider ? escapeHtml(turn.provider) : "";
+  const model = turn.model ? escapeHtml(turn.model) : "";
+  const tag = provider ? `${provider}${model ? " · " + model : ""}` : "";
+  const proseHtml = renderEditorAssistantText(turn.content || "");
+  const patches = (turn.patches || []).map((p) => renderPatchCard(p)).join("");
+  const parseError = turn.parse_error
+    ? `<div class="editor-parse-error">补丁解析失败：${escapeHtml(turn.parse_error)}</div>`
+    : "";
+  return `
+    <div class="editor-turn assistant">
+      <div class="editor-turn-head">模型 ${tag}</div>
+      <div class="editor-turn-body">${proseHtml}</div>
+      ${patches ? `<div class="editor-patches">${patches}</div>` : ""}
+      ${parseError}
+    </div>
+  `;
+}
+
+function renderEditorAssistantText(text) {
+  const stripped = text.replace(/```(?:json)?\s*edit-patches[\s\S]*?```/g, "").trim();
+  if (!stripped) return '<span class="status-line">（仅返回了补丁，无额外解释）</span>';
+  return renderMarkdown(stripped, selectedJob);
+}
+
+function renderPatchCard(patch) {
+  const id = escapeHtml(patch.id || "");
+  const intent = escapeHtml(patch.intent || "");
+  const find = escapeHtml((patch.find || "").slice(0, 320));
+  const replace = escapeHtml((patch.replace || "").slice(0, 320));
+  const longFind = (patch.find || "").length > 320;
+  const longReplace = (patch.replace || "").length > 320;
+  let actions;
+  let badge;
+  if (patch.status === "applied") {
+    actions = `<span class="status-line">已应用 → ${escapeHtml(patch.applied_version || "")}</span>`;
+    badge = `<span class="badge completed">已应用</span>`;
+  } else if (patch.status === "rejected") {
+    actions = `<span class="status-line">已拒绝</span>`;
+    badge = `<span class="badge failed">已拒绝</span>`;
+  } else if (patch.match_error) {
+    actions = `<span class="status-line">${escapeHtml(patch.match_error)}</span>`;
+    badge = `<span class="badge failed">无法应用</span>`;
+  } else {
+    actions = `
+      <button class="primary small editor-apply-btn" data-id="${id}">应用</button>
+      <button class="editor-reject-btn" data-id="${id}">拒绝</button>
+    `;
+    badge = `<span class="badge waiting">待审</span>`;
+  }
+  return `
+    <div class="editor-patch" data-id="${id}">
+      <div class="editor-patch-head">
+        <span class="editor-patch-id">${id}</span>
+        ${badge}
+        <span class="editor-patch-intent">${intent}</span>
+      </div>
+      <div class="editor-patch-diff">
+        <div class="editor-patch-side editor-patch-find"><span class="editor-side-label">原文</span><pre>${find}${longFind ? "…" : ""}</pre></div>
+        <div class="editor-patch-side editor-patch-replace"><span class="editor-side-label">替换</span><pre>${replace}${longReplace ? "…" : ""}</pre></div>
+      </div>
+      <div class="editor-patch-actions">${actions}</div>
+    </div>
+  `;
+}
+
+function attachEditorHandlers() {
+  const providerSel = document.getElementById("editorProvider");
+  const modelInput = document.getElementById("editorModel");
+  const messageEl = document.getElementById("editorMessage");
+  const form = document.getElementById("editorForm");
+  const reset = document.getElementById("editorReset");
+
+  if (providerSel) {
+    providerSel.addEventListener("change", () => {
+      editorDraft.provider = providerSel.value;
+      const cfg = settings && settings.providers ? settings.providers[editorDraft.provider] : null;
+      editorDraft.model = (cfg && cfg.model) || "";
+      modelInput.value = editorDraft.model;
+    });
+  }
+  if (modelInput) {
+    modelInput.addEventListener("input", () => {
+      editorDraft.model = modelInput.value.trim();
+    });
+  }
+  if (messageEl) {
+    messageEl.addEventListener("input", () => {
+      editorDraft.message = messageEl.value;
+    });
+  }
+  if (form) {
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      sendEditorMessage();
+    });
+  }
+  if (reset) {
+    reset.addEventListener("click", async () => {
+      if (!confirm("清空对话历史？版本时间线和已写入报告不受影响。")) return;
+      try {
+        const state = await api(
+          `/api/jobs/${encodeURIComponent(selectedJob.id)}/edit/reset`,
+          { method: "POST", body: "{}" },
+        );
+        editorDraft.message = "";
+        drawEditor(state);
+      } catch (error) {
+        alert(error.message);
+      }
+    });
+  }
+
+  document.querySelectorAll(".editor-apply-btn").forEach((btn) => {
+    btn.addEventListener("click", () => editorPatchAction("apply", btn.dataset.id));
+  });
+  document.querySelectorAll(".editor-reject-btn").forEach((btn) => {
+    btn.addEventListener("click", () => editorPatchAction("reject", btn.dataset.id));
+  });
+  document.querySelectorAll(".editor-rollback").forEach((btn) => {
+    btn.addEventListener("click", () => editorRollback(btn.dataset.version));
+  });
+
+  setupEditorResizers();
+}
+
+const EDITOR_KEYS = { x: "deepResearchEditorSideW", y: "deepResearchEditorInputH" };
+const EDITOR_MIN = { x: 180, y: 80 };
+const EDITOR_DEFAULT = { x: 240, y: 132 };
+
+function setupEditorResizers() {
+  for (const axis of ["x", "y"]) {
+    const saved = Number(localStorage.getItem(EDITOR_KEYS[axis]));
+    if (saved >= EDITOR_MIN[axis]) {
+      document.documentElement.style.setProperty(
+        axis === "x" ? "--editor-side-w" : "--editor-input-h",
+        `${saved}px`,
+      );
+    }
+  }
+  document.querySelectorAll("[data-editor-resizer]").forEach((handle) => {
+    handle.addEventListener("mousedown", (event) => beginEditorDrag(event, handle));
+  });
+}
+
+function beginEditorDrag(event, handle) {
+  event.preventDefault();
+  const axis = handle.dataset.editorResizer;
+  const root = document.documentElement;
+  const cssVar = axis === "x" ? "--editor-side-w" : "--editor-input-h";
+  const current = parseFloat(getComputedStyle(root).getPropertyValue(cssVar)) || EDITOR_DEFAULT[axis];
+  const startPos = axis === "x" ? event.clientX : event.clientY;
+  const shell = document.querySelector(".editor-shell");
+  const main = document.querySelector(".editor-main");
+  let maxSize;
+  if (axis === "x") {
+    const mainWidth = main.getBoundingClientRect().width;
+    maxSize = Math.max(EDITOR_MIN.x, mainWidth - EDITOR_MIN.x - 20);
+  } else {
+    const shellHeight = shell.getBoundingClientRect().height;
+    maxSize = Math.max(EDITOR_MIN.y, shellHeight - 220);
+  }
+
+  handle.classList.add("dragging");
+  document.body.style.cursor = axis === "x" ? "col-resize" : "row-resize";
+
+  function onMove(ev) {
+    const pos = axis === "x" ? ev.clientX : ev.clientY;
+    const delta = pos - startPos;
+    const next = axis === "x"
+      ? Math.max(EDITOR_MIN.x, Math.min(maxSize, current - delta))
+      : Math.max(EDITOR_MIN.y, Math.min(maxSize, current - delta));
+    root.style.setProperty(cssVar, `${next}px`);
+  }
+  function onUp() {
+    document.removeEventListener("mousemove", onMove);
+    document.removeEventListener("mouseup", onUp);
+    handle.classList.remove("dragging");
+    document.body.style.cursor = "";
+    const finalSize = parseFloat(getComputedStyle(root).getPropertyValue(cssVar));
+    if (finalSize) localStorage.setItem(EDITOR_KEYS[axis], String(Math.round(finalSize)));
+  }
+  document.addEventListener("mousemove", onMove);
+  document.addEventListener("mouseup", onUp);
+}
+
+async function sendEditorMessage() {
+  if (editorBusy || !selectedJob) return;
+  const messageEl = document.getElementById("editorMessage");
+  const message = (messageEl ? messageEl.value : editorDraft.message).trim();
+  if (!message) {
+    alert("请填写修改诉求。");
+    return;
+  }
+  if (!editorDraft.provider) {
+    alert("请选择模型。");
+    return;
+  }
+  editorBusy = true;
+  const sendBtn = document.getElementById("editorSend");
+  if (sendBtn) {
+    sendBtn.disabled = true;
+    sendBtn.textContent = "对话中…";
+  }
+  try {
+    const state = await api(
+      `/api/jobs/${encodeURIComponent(selectedJob.id)}/edit/message`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          message,
+          provider: editorDraft.provider,
+          model: editorDraft.model || undefined,
+        }),
+      },
+    );
+    editorDraft.message = "";
+    drawEditor(state);
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    editorBusy = false;
+    const send = document.getElementById("editorSend");
+    if (send) {
+      send.disabled = false;
+      send.textContent = "发送";
+    }
+  }
+}
+
+async function editorPatchAction(action, patchId) {
+  if (!selectedJob || !patchId) return;
+  try {
+    const state = await api(
+      `/api/jobs/${encodeURIComponent(selectedJob.id)}/edit/${action}`,
+      {
+        method: "POST",
+        body: JSON.stringify({ patch_ids: [patchId] }),
+      },
+    );
+    if (action === "apply") {
+      // Refresh job stats since report.md changed
+      await loadJobs();
+    }
+    drawEditor(state);
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+async function editorRollback(version) {
+  if (!selectedJob || !version) return;
+  if (!confirm(`回滚到 ${version}？当前内容会另存为新的版本。`)) return;
+  try {
+    const state = await api(
+      `/api/jobs/${encodeURIComponent(selectedJob.id)}/edit/rollback`,
+      { method: "POST", body: JSON.stringify({ version }) },
+    );
+    await loadJobs();
+    drawEditor(state);
+  } catch (error) {
+    alert(error.message);
   }
 }
 
@@ -712,8 +1186,56 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
+const COL_KEYS = { 1: "deepResearchCol1", 2: "deepResearchCol2" };
+const COL_MIN = 240;
+
 applyFontSize(localStorage.getItem(FONT_KEY) || DEFAULT_FONT_SIZE);
+setupColumnResizers();
 loadHealth();
 loadSettings();
 loadJobs();
 setInterval(loadJobs, 10000);
+
+function setupColumnResizers() {
+  for (const [which, key] of Object.entries(COL_KEYS)) {
+    const saved = Number(localStorage.getItem(key));
+    if (saved >= COL_MIN) {
+      document.documentElement.style.setProperty(`--col-${which}`, `${saved}px`);
+    }
+  }
+  document.querySelectorAll(".col-resizer").forEach((handle) => {
+    handle.addEventListener("mousedown", (event) => beginColumnDrag(event, handle));
+  });
+}
+
+function beginColumnDrag(event, handle) {
+  event.preventDefault();
+  const which = handle.dataset.resizer;
+  const layout = document.querySelector(".layout");
+  const cols = getComputedStyle(layout).gridTemplateColumns.split(/\s+/).map(parseFloat);
+  const startX = event.clientX;
+  const startWidth = which === "1" ? cols[0] : cols[2];
+  const layoutWidth = layout.getBoundingClientRect().width;
+  const otherFixed = which === "1" ? cols[2] : cols[0];
+  const handlesWidth = 6 * 2 + 10 * 2;
+  const maxWidth = Math.max(COL_MIN, layoutWidth - otherFixed - handlesWidth - COL_MIN);
+
+  handle.classList.add("dragging");
+  document.body.style.cursor = "col-resize";
+
+  function onMove(ev) {
+    const dx = ev.clientX - startX;
+    const next = Math.max(COL_MIN, Math.min(maxWidth, startWidth + dx));
+    document.documentElement.style.setProperty(`--col-${which}`, `${next}px`);
+  }
+  function onUp() {
+    document.removeEventListener("mousemove", onMove);
+    document.removeEventListener("mouseup", onUp);
+    handle.classList.remove("dragging");
+    document.body.style.cursor = "";
+    const finalWidth = parseFloat(getComputedStyle(document.documentElement).getPropertyValue(`--col-${which}`));
+    if (finalWidth) localStorage.setItem(COL_KEYS[which], String(Math.round(finalWidth)));
+  }
+  document.addEventListener("mousemove", onMove);
+  document.addEventListener("mouseup", onUp);
+}

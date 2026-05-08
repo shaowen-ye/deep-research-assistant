@@ -7,6 +7,7 @@ import sys
 from http.server import BaseHTTPRequestHandler
 from urllib import parse
 
+from . import editor as editor_mod
 from .config import STATIC_DIR, public_settings, update_settings
 from .exporters import make_artifact_zip
 from .state import (
@@ -100,6 +101,25 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_text("")
             return self.send_text(target.read_text(encoding="utf-8"))
 
+        match = re.fullmatch(r"/api/jobs/([^/]+)/edit", path)
+        if match:
+            job_id = parse.unquote(match.group(1))
+            if not load_state(job_id):
+                return self.send_json({"error": "job not found"}, 404)
+            try:
+                return self.send_json(editor_mod.get_state(job_id))
+            except Exception as exc:
+                return self.send_json({"error": str(exc)}, 400)
+
+        match = re.fullmatch(r"/api/jobs/([^/]+)/edit/version/([A-Za-z0-9_-]+)", path)
+        if match:
+            job_id = parse.unquote(match.group(1))
+            version = match.group(2)
+            try:
+                return self.send_text(editor_mod.read_version(job_id, version))
+            except Exception as exc:
+                return self.send_json({"error": str(exc)}, 404)
+
         match = re.fullmatch(r"/files/([^/]+)/(.*)", path)
         if match:
             job_id = parse.unquote(match.group(1))
@@ -124,6 +144,32 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/settings":
             try:
                 return self.send_json(update_settings(self.read_body_json()))
+            except Exception as exc:
+                return self.send_json({"error": str(exc)}, 400)
+
+        match = re.fullmatch(r"/api/jobs/([^/]+)/edit/(message|apply|reject|rollback|reset)", path)
+        if match:
+            job_id, action = parse.unquote(match.group(1)), match.group(2)
+            if not load_state(job_id):
+                return self.send_json({"error": "job not found"}, 404)
+            body = self.read_body_json()
+            try:
+                if action == "message":
+                    state = editor_mod.send_message(
+                        job_id,
+                        body.get("message") or "",
+                        body.get("provider") or "",
+                        body.get("model") or None,
+                    )
+                elif action == "apply":
+                    state = editor_mod.apply_patches(job_id, body.get("patch_ids") or [])
+                elif action == "reject":
+                    state = editor_mod.reject_patches(job_id, body.get("patch_ids") or [])
+                elif action == "rollback":
+                    state = editor_mod.rollback(job_id, body.get("version") or "")
+                else:
+                    state = editor_mod.reset_session(job_id)
+                return self.send_json(state)
             except Exception as exc:
                 return self.send_json({"error": str(exc)}, 400)
 
