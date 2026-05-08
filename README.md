@@ -116,7 +116,7 @@ export OPENROUTER_API_KEY="..."
 | **Gemini Deep Research** | [Interactions API][gdr] | `deep-research-preview-04-2026`（默认） | 速度优先，约 80 次搜索查询 / 25 万输入 + 6 万输出 tokens，每任务约 $1–3。 |
 | **Gemini Deep Research Max** | [Interactions API][gdr] | `deep-research-max-preview-04-2026` | 全面性优先，约 160 次搜索查询 / 90 万输入 + 8 万输出 tokens，每任务约 $3–7，适合深度尽职调查。 |
 | DeepSeek | OpenAI 兼容 Chat Completions | `deepseek-v4-pro`（默认） | 低成本一次性报告生成。 |
-| OpenAI | Chat Completions | `gpt-5.5-pro`（默认） | 通用一次性报告生成。 |
+| OpenAI | Chat Completions | `gpt-5.5`（默认） | 通用一次性报告生成。 |
 | OpenRouter | OpenAI 兼容聚合接口 | `anthropic/claude-sonnet-4.6`（默认） | 一个端点访问多种模型。 |
 
 > 两个 Gemini 模型最长运行 60 分钟（多数任务在 20 分钟内完成），价格
@@ -126,7 +126,7 @@ export OPENROUTER_API_KEY="..."
 
 GUI 的 **API 设置 → Model / Agent** 字段是自由输入框，并提供下拉建议：
 
-- **OpenAI**：`gpt-5.5-pro` / `gpt-5.5` / `gpt-5.5-mini` / `gpt-5`
+- **OpenAI**：`gpt-5.5` / `gpt-5.5-pro` / `gpt-5.5-mini` / `gpt-5`
 - **DeepSeek**：`deepseek-v4-pro` / `deepseek-chat-v3.1`
 - **OpenRouter**：`anthropic/claude-sonnet-4.6` / `anthropic/claude-opus-4.7`
   / `openai/gpt-5.5-pro` / `google/gemini-3.1-flash-lite` /
@@ -415,7 +415,7 @@ export OPENROUTER_API_KEY="..."
 | **Gemini Deep Research** | [Interactions API][gdr] | `deep-research-preview-04-2026` (default) | Speed-oriented; ~80 search queries / ~250k input + ~60k output tokens; ~$1–3 per task. |
 | **Gemini Deep Research Max** | [Interactions API][gdr] | `deep-research-max-preview-04-2026` | Comprehensiveness-oriented; ~160 search queries / ~900k input + ~80k output tokens; ~$3–7 per task; suited to deep due diligence. |
 | DeepSeek | OpenAI-compatible Chat Completions | `deepseek-v4-pro` (default) | Low-cost single-shot report generation. |
-| OpenAI | Chat Completions | `gpt-5.5-pro` (default) | Single-shot report generation. |
+| OpenAI | Chat Completions | `gpt-5.5` (default) | Single-shot report generation. |
 | OpenRouter | OpenAI-compatible aggregator | `anthropic/claude-sonnet-4.6` (default) | Access many models via one endpoint. |
 
 > Both Gemini models run up to 60 minutes (most tasks finish within 20).
@@ -427,7 +427,7 @@ export OPENROUTER_API_KEY="..."
 The **API 设置 → Model / Agent** field is a free-form input with autocomplete
 suggestions:
 
-- **OpenAI**: `gpt-5.5-pro` / `gpt-5.5` / `gpt-5.5-mini` / `gpt-5`
+- **OpenAI**: `gpt-5.5` / `gpt-5.5-pro` / `gpt-5.5-mini` / `gpt-5`
 - **DeepSeek**: `deepseek-v4-pro` / `deepseek-chat-v3.1`
 - **OpenRouter**: `anthropic/claude-sonnet-4.6` / `anthropic/claude-opus-4.7`
   / `openai/gpt-5.5-pro` / `google/gemini-3.1-flash-lite` /

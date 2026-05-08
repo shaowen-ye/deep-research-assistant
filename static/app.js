@@ -8,7 +8,7 @@ const $ = (id) => document.getElementById(id);
 const MODEL_SUGGESTIONS = {
   gemini: ["deep-research-preview-04-2026", "deep-research-max-preview-04-2026"],
   deepseek: ["deepseek-v4-pro", "deepseek-chat-v3.1"],
-  openai: ["gpt-5.5-pro", "gpt-5.5", "gpt-5.5-mini", "gpt-5"],
+  openai: ["gpt-5.5", "gpt-5.5-pro", "gpt-5.5-mini", "gpt-5"],
   openrouter: [
     "anthropic/claude-sonnet-4.6",
     "anthropic/claude-opus-4.7",

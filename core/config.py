@@ -34,7 +34,7 @@ PROVIDER_DEFAULTS = {
         "label": "OpenAI",
         "env_key": "OPENAI_API_KEY",
         "base_url": "https://api.openai.com/v1",
-        "model": "gpt-5.5-pro",
+        "model": "gpt-5.5",
         "mode": "openai_chat",
     },
     "openrouter": {
