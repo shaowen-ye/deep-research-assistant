@@ -15,7 +15,8 @@
 ## 亮点
 
 - **Gemini Deep Research 端到端**：长任务、SSE 流式、协作规划、引用、
-  正文嵌入图表、计划批准与修订循环。
+  正文嵌入图表、计划批准与修订循环；可切换至 **Deep Research Max**
+  获取更高搜索量与上下文，适合深度尽职调查或竞争分析。
 - **三个 OpenAI 兼容 fallback**：DeepSeek / OpenAI / OpenRouter 走 Chat
   Completions，适合低成本草稿和后期整理。
 - **本地优先**：服务器只监听 `127.0.0.1`；设置、任务状态、产物都保存
@@ -65,12 +66,16 @@ export OPENROUTER_API_KEY="..."
 
 ### Providers
 
-| Provider | 模式 | 默认模型 | 说明 |
+| Provider | 模式 | 模型 | 说明 |
 | --- | --- | --- | --- |
-| **Gemini Deep Research** | [Interactions API][gdr] | `deep-research-preview-04-2026` | 完整 Deep Research Agent：协作规划、联网搜索、图表、SSE 流式。 |
+| **Gemini Deep Research** | [Interactions API][gdr] | `deep-research-preview-04-2026`（默认） | 速度优先，约 80 次搜索查询 / 25 万输入 + 6 万输出 tokens，每任务约 $1–3。 |
+| **Gemini Deep Research Max** | [Interactions API][gdr] | `deep-research-max-preview-04-2026` | 全面性优先，约 160 次搜索查询 / 90 万输入 + 8 万输出 tokens，每任务约 $3–7，适合深度尽职调查。 |
 | DeepSeek | OpenAI 兼容 Chat Completions | `deepseek-v4-pro` | 低成本一次性报告生成。 |
 | OpenAI | Chat Completions | `gpt-4.1` | 通用一次性报告生成。 |
 | OpenRouter | OpenAI 兼容聚合接口 | `deepseek/deepseek-chat` | 一个端点访问多种模型。 |
+
+> 两个 Gemini 模型最长运行 60 分钟（多数任务在 20 分钟内完成），价格为预览版费率，可能调整。详见
+> [官方文档][gdr]。
 
 只有 Gemini 路径会真正运行 research agent。DeepSeek / OpenAI /
 OpenRouter 是单次 Chat Completions 调用，不会自行联网搜索。
@@ -153,7 +158,9 @@ machine.
 
 - **Gemini Deep Research, end to end** — long-running interactions, SSE
   streaming, collaborative planning, citations, inline figures, plan
-  approval/refinement loop.
+  approval/refinement loop; switch to **Deep Research Max** for higher
+  query volume and context, suited to in-depth due diligence and
+  competitive analysis.
 - **Three OpenAI-compatible fallbacks** — DeepSeek, OpenAI, OpenRouter via
   Chat Completions, useful for cheaper drafts and offline-friendly post-edit.
 - **Local-first** — server binds to `127.0.0.1`; settings, job state, and
@@ -203,12 +210,17 @@ export OPENROUTER_API_KEY="..."
 
 #### Providers
 
-| Provider | Mode | Default model | Notes |
+| Provider | Mode | Model | Notes |
 | --- | --- | --- | --- |
-| **Gemini Deep Research** | [Interactions API][gdr] | `deep-research-preview-04-2026` | Full Deep Research Agent: collaborative planning, web search, figures, SSE streaming. |
+| **Gemini Deep Research** | [Interactions API][gdr] | `deep-research-preview-04-2026` (default) | Speed-oriented; ~80 search queries / ~250k input + ~60k output tokens; ~$1–3 per task. |
+| **Gemini Deep Research Max** | [Interactions API][gdr] | `deep-research-max-preview-04-2026` | Comprehensiveness-oriented; ~160 search queries / ~900k input + ~80k output tokens; ~$3–7 per task; suited to deep due diligence. |
 | DeepSeek | OpenAI-compatible Chat Completions | `deepseek-v4-pro` | Low-cost single-shot report generation. |
 | OpenAI | Chat Completions | `gpt-4.1` | Single-shot report generation. |
 | OpenRouter | OpenAI-compatible aggregator | `deepseek/deepseek-chat` | Access many models via one endpoint. |
+
+> Both Gemini models run up to 60 minutes (most tasks finish within 20).
+> Pricing is preview-tier and may change — see the
+> [official docs][gdr] for current details.
 
 Only the Gemini path runs an actual research agent. DeepSeek / OpenAI /
 OpenRouter make a single Chat Completions call against the topic — they do
