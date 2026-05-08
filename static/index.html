@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Gemini Deep Research</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>Gemini Deep Research</h1>
+        <p>本地任务管理、断线恢复、Markdown/PDF/图表归档</p>
+      </div>
+      <div class="top-actions">
+        <div class="font-controls" aria-label="字体大小">
+          <button id="fontDownBtn" class="icon-btn" title="缩小字体 Cmd -">A-</button>
+          <button id="fontResetBtn" class="reset-btn" title="重置字体 Cmd 0">100%</button>
+          <button id="fontUpBtn" class="icon-btn" title="放大字体 Cmd +">A+</button>
+        </div>
+        <button id="openSettingsBtn">API 设置</button>
+        <div id="health" class="health"></div>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel composer">
+        <div class="panel-title">
+          <h2>新建研究</h2>
+          <button id="refreshBtn" class="icon-btn" title="刷新任务">↻</button>
+        </div>
+        <label>
+          研究引擎
+          <select id="provider"></select>
+        </label>
+        <label>
+          标题
+          <input id="title" placeholder="例如：AI 编程 CLI 工具对比" />
+        </label>
+        <label>
+          研究要求
+          <textarea id="topic" spellcheck="false">请研究：Claude Code、Gemini CLI、OpenAI Codex CLI、DeepSeek 在个人开发者编程工作流中的优缺点。
+请输出中文报告，包含：
+1. 总结
+2. 功能对比表
+3. 适合个人 MacBook 用户的推荐组合
+4. 成本和隐私风险
+5. 结论</textarea>
+        </label>
+        <div class="row">
+          <label>
+            Agent / Model
+            <select id="agent">
+              <option value="deep-research-preview-04-2026">Deep Research</option>
+              <option value="deep-research-max-preview-04-2026">Deep Research Max</option>
+            </select>
+          </label>
+          <label class="check">
+            <input id="includeVisuals" type="checkbox" checked />
+            生成图表
+          </label>
+        </div>
+        <label class="check">
+          <input id="collab" type="checkbox" />
+          协作规划模式
+        </label>
+        <button id="createBtn" class="primary">启动研究</button>
+        <p class="note">协作规划会先生成研究计划；你可以批准执行，也可以输入修改意见生成新版计划。</p>
+      </section>
+
+      <section class="panel jobs">
+        <div class="panel-title">
+          <h2>研究任务</h2>
+          <span id="jobCount"></span>
+        </div>
+        <div id="jobsList" class="jobs-list"></div>
+      </section>
+
+      <section class="panel detail">
+        <div class="panel-title">
+          <h2 id="detailTitle">任务详情</h2>
+          <div class="tabs">
+            <button class="tab active" data-tab="progress">过程</button>
+            <button class="tab" data-tab="plan">计划</button>
+            <button class="tab" data-tab="report">报告</button>
+          </div>
+        </div>
+        <div id="actions" class="actions"></div>
+        <div id="content" class="content">选择一个任务查看内容。</div>
+      </section>
+    </main>
+
+    <div id="settingsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <div class="modal-backdrop" data-close-settings></div>
+      <section class="modal-panel">
+        <div class="modal-head">
+          <div>
+            <h2 id="settingsTitle">API 设置</h2>
+            <p class="note">Key 保存在本机 app_data/settings.json；已配置的 key 不会完整回显。</p>
+          </div>
+          <button id="closeSettingsBtn" class="icon-btn" title="关闭">×</button>
+        </div>
+        <label>
+          设置 Provider
+          <select id="settingsProvider"></select>
+        </label>
+        <div id="settingsList"></div>
+        <div class="modal-actions">
+          <span id="settingsStatus" class="status-line"></span>
+          <button id="saveSettingsBtn" class="primary small">保存 API 设置</button>
+        </div>
+      </section>
+    </div>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

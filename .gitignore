@@ -1,0 +1,39 @@
+# Local runtime data and secrets
+app_data/
+.env
+.env.*
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# macOS and editor state
+.DS_Store
+.vscode/
+.idea/
+
+# Browser/test artifacts
+.playwright-cli/
+
+# Generated research outputs
+output/
+images/
+research_report.md
+research_report.pdf
+research_stream_output.md
+interaction_final.json
+interaction_stream_raw.sse
+last_event_id.txt
+last_interaction_id.txt
+_pdf_test*
+pdf_link_style.tex
+
+# Earlier one-off prototypes kept locally, not part of the GUI app
+research.py
+research_rest.py
+stream_research.py
+
+# Logs
+*.log
