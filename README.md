@@ -5,11 +5,11 @@
 [![Stdlib only](https://img.shields.io/badge/runtime-stdlib%20only-informational)](#架构)
 [![Status: preview](https://img.shields.io/badge/status-preview-orange)](#已知限制)
 
-一个本地 Python Web GUI，用来调用 [Gemini Deep Research][gdr]、
-Anthropic Claude（含原生 web_search）以及 OpenAI 兼容的 DeepSeek /
-OpenAI / OpenRouter（通过 Tavily 检索）完成 **联网 agentic 研究**，并把
-过程、报告、图表、原始 API 返回完整归档到本机。所有 API key、任务
-状态与产物都只保存在你的电脑上。
+一个本地 Python Web GUI，把 [Gemini Deep Research 智能体][gdr]（自主
+规划、多步联网检索、附引文报告）搬到本机运行；同时兼容 Anthropic
+Claude（原生 `web_search`）与通过 Tavily 检索的 OpenAI / DeepSeek /
+OpenRouter。每个任务的过程、报告、图表与原始 API 返回完整归档到
+本机，API key 与任务状态都只保存在你的电脑上。
 
 > [English version](#english) is available below.
 
@@ -330,11 +330,13 @@ MIT，见 [LICENSE](LICENSE)。
 
 ## English
 
-A local Python web GUI for running and archiving long-running, **fully
-web-grounded** research jobs against [Gemini Deep Research][gdr],
-Anthropic Claude (native `web_search`), and OpenAI-compatible providers
-(DeepSeek, OpenAI, OpenRouter — agentic loop powered by Tavily search).
-All API keys, job state, and outputs stay on your local machine.
+A local Python web GUI that runs the [Gemini Deep Research agent][gdr]
+(autonomous planning, multi-step web research, cited reports) on your
+own machine, with extra support for Anthropic Claude (native
+`web_search`) and OpenAI-compatible providers — DeepSeek, OpenAI,
+OpenRouter — via a Tavily-backed agentic loop. Every job's progress,
+report, figures, and raw API responses are archived locally; API keys,
+job state, and outputs never leave your computer.
 
 ### Screenshots
 
